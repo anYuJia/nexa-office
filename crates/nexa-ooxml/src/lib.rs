@@ -26,6 +26,4 @@ pub use xml::{
     XmlLimits, XmlParseError, parse_content_types, parse_content_types_with_limits,
     parse_relationships, parse_relationships_with_limits,
 };
-pub use zip_package::{
-    LazyZipPackage, PackageCompression, ZipEntryMetadata, ZipPackageError,
-};
+pub use zip_package::{LazyZipPackage, PackageCompression, ZipEntryMetadata, ZipPackageError};

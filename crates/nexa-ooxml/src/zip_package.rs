@@ -294,10 +294,7 @@ impl<R: Read + Seek> LazyZipPackage<R> {
 mod tests {
     use super::*;
     use std::io::{Cursor, Write};
-    use zip::{
-        ZipWriter,
-        write::SimpleFileOptions,
-    };
+    use zip::{ZipWriter, write::SimpleFileOptions};
 
     const CONTENT_TYPES: &[u8] = br#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
       <Default Extension="xml" ContentType="application/xml"/>
@@ -305,16 +302,25 @@ mod tests {
       <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
     </Types>"#;
 
-    const ROOT_RELS: &[u8] = br#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    const ROOT_RELS: &[u8] =
+        br#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
       <Relationship Id="rId1" Type="officeDocument" Target="word/document.xml"/>
     </Relationships>"#;
 
     #[test]
     fn indexes_package_without_eagerly_exposing_part_bodies() {
         let bytes = build_zip(&[
-            ("[Content_Types].xml", CONTENT_TYPES, CompressionMethod::Stored),
+            (
+                "[Content_Types].xml",
+                CONTENT_TYPES,
+                CompressionMethod::Stored,
+            ),
             ("_rels/.rels", ROOT_RELS, CompressionMethod::Deflated),
-            ("word/document.xml", b"<w:document/>", CompressionMethod::Deflated),
+            (
+                "word/document.xml",
+                b"<w:document/>",
+                CompressionMethod::Deflated,
+            ),
         ]);
 
         let package = LazyZipPackage::open(Cursor::new(bytes)).unwrap();
@@ -360,21 +366,17 @@ mod tests {
 
     #[test]
     fn parses_root_relationships_directly_from_zip() {
-        let bytes = build_zip(&[(
-            "_rels/.rels",
-            ROOT_RELS,
-            CompressionMethod::Deflated,
-        )]);
+        let bytes = build_zip(&[("_rels/.rels", ROOT_RELS, CompressionMethod::Deflated)]);
         let mut package = LazyZipPackage::open(Cursor::new(bytes)).unwrap();
 
         let relationships = package.read_relationships(None).unwrap();
 
-        let relationship = relationships.get(&crate::RelationshipId::new("rId1")).unwrap();
+        let relationship = relationships
+            .get(&crate::RelationshipId::new("rId1"))
+            .unwrap();
         assert_eq!(
             relationship.target,
-            crate::RelationshipTarget::Internal(
-                PartName::new("/word/document.xml").unwrap()
-            )
+            crate::RelationshipTarget::Internal(PartName::new("/word/document.xml").unwrap())
         );
     }
 
@@ -394,11 +396,7 @@ mod tests {
     #[test]
     fn rejects_suspicious_deflate_ratio_from_metadata() {
         let repeated = vec![b'A'; 64 * 1024];
-        let bytes = build_zip(&[(
-            "word/document.xml",
-            &repeated,
-            CompressionMethod::Deflated,
-        )]);
+        let bytes = build_zip(&[("word/document.xml", &repeated, CompressionMethod::Deflated)]);
         let limits = PackageLimits {
             max_compression_ratio: 2,
             ..PackageLimits::default()
