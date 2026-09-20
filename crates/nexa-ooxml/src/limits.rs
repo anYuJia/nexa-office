@@ -48,9 +48,7 @@ impl PackageLimits {
             return Err(LimitViolation::SinglePartTooLarge);
         }
 
-        if compressed_size > 0
-            && uncompressed_size / compressed_size > self.max_compression_ratio
-        {
+        if compressed_size > 0 && uncompressed_size / compressed_size > self.max_compression_ratio {
             return Err(LimitViolation::SuspiciousCompressionRatio);
         }
 
