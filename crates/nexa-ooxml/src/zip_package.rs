@@ -249,8 +249,7 @@ impl<R: Read + Seek> LazyZipPackage<R> {
         let read_limit = self
             .limits
             .max_single_part_uncompressed
-            .checked_add(1)
-            .unwrap_or(u64::MAX);
+            .saturating_add(1);
 
         (&mut file)
             .take(read_limit)
