@@ -62,9 +62,7 @@ mod tests {
     #[test]
     fn saved_settings_can_be_loaded_again() {
         let path = unique_test_path("round-trip");
-        let settings = AppSettings::decode(
-            "reopen_last_session=false\nautosave_enabled=false\n",
-        );
+        let settings = AppSettings::decode("reopen_last_session=false\nautosave_enabled=false\n");
 
         save(&path, &settings).expect("settings should save");
         let loaded = load(&path).expect("settings should load");
