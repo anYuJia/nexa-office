@@ -26,17 +26,25 @@ pub fn save(path: &Path, settings: &AppSettings) -> io::Result<()> {
     let temporary = temporary_path(path);
     fs::write(&temporary, settings.encode())?;
 
-    match fs::rename(&temporary, path) {
-        Ok(()) => Ok(()),
-        Err(error) if cfg!(target_os = "windows") && error.kind() == ErrorKind::AlreadyExists => {
-            fs::remove_file(path)?;
-            fs::rename(temporary, path)
-        }
-        Err(error) => {
-            let _ = fs::remove_file(temporary);
-            Err(error)
-        }
+    if let Err(error) = replace_file(&temporary, path) {
+        let _ = fs::remove_file(&temporary);
+        return Err(error);
     }
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn replace_file(source: &Path, destination: &Path) -> io::Result<()> {
+    if destination.exists() {
+        fs::remove_file(destination)?;
+    }
+    fs::rename(source, destination)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn replace_file(source: &Path, destination: &Path) -> io::Result<()> {
+    fs::rename(source, destination)
 }
 
 fn temporary_path(path: &Path) -> PathBuf {
@@ -68,8 +76,24 @@ mod tests {
         let loaded = load(&path).expect("settings should load");
 
         assert_eq!(loaded, settings);
+        cleanup(&path);
+    }
 
-        let _ = fs::remove_file(&path);
+    #[test]
+    fn existing_settings_can_be_replaced() {
+        let path = unique_test_path("replace");
+        let first = AppSettings::decode("show_status_bar=true\ncompact_navigation=false\n");
+        let second = AppSettings::decode("show_status_bar=false\ncompact_navigation=true\n");
+
+        save(&path, &first).expect("initial settings should save");
+        save(&path, &second).expect("existing settings should be replaceable");
+
+        assert_eq!(load(&path).expect("replaced settings should load"), second);
+        cleanup(&path);
+    }
+
+    fn cleanup(path: &Path) {
+        let _ = fs::remove_file(path);
         if let Some(parent) = path.parent() {
             let _ = fs::remove_dir(parent);
         }
