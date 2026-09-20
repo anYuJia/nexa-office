@@ -58,7 +58,10 @@ impl fmt::Display for XmlParseError {
             }
             Self::MissingRoot(expected) => write!(f, "missing XML root element: {expected}"),
             Self::UnexpectedRoot { expected, actual } => {
-                write!(f, "unexpected XML root element '{actual}', expected '{expected}'")
+                write!(
+                    f,
+                    "unexpected XML root element '{actual}', expected '{expected}'"
+                )
             }
             Self::MissingAttribute(name) => write!(f, "missing required XML attribute: {name}"),
             Self::UnsupportedDocType => f.write_str("DOCTYPE is not allowed in OOXML metadata"),
@@ -110,20 +113,10 @@ pub fn parse_content_types_with_limits(
         match reader.read_event_into(&mut buffer) {
             Ok(Event::Start(element)) => {
                 depth = checked_depth(depth, limits)?;
-                handle_content_type_element(
-                    &element,
-                    &mut root_seen,
-                    &mut output,
-                    limits,
-                )?;
+                handle_content_type_element(&element, &mut root_seen, &mut output, limits)?;
             }
             Ok(Event::Empty(element)) => {
-                handle_content_type_element(
-                    &element,
-                    &mut root_seen,
-                    &mut output,
-                    limits,
-                )?;
+                handle_content_type_element(&element, &mut root_seen, &mut output, limits)?;
             }
             Ok(Event::End(_)) => {
                 depth = depth.saturating_sub(1);
@@ -169,22 +162,10 @@ pub fn parse_relationships_with_limits(
         match reader.read_event_into(&mut buffer) {
             Ok(Event::Start(element)) => {
                 depth = checked_depth(depth, limits)?;
-                handle_relationship_element(
-                    source,
-                    &element,
-                    &mut root_seen,
-                    &mut output,
-                    limits,
-                )?;
+                handle_relationship_element(source, &element, &mut root_seen, &mut output, limits)?;
             }
             Ok(Event::Empty(element)) => {
-                handle_relationship_element(
-                    source,
-                    &element,
-                    &mut root_seen,
-                    &mut output,
-                    limits,
-                )?;
+                handle_relationship_element(source, &element, &mut root_seen, &mut output, limits)?;
             }
             Ok(Event::End(_)) => {
                 depth = depth.saturating_sub(1);
@@ -235,9 +216,7 @@ fn handle_content_type_element(
         "Override" => {
             let attributes = collect_attributes(element, limits)?;
             output.insert(ContentTypeRule::Override {
-                part_name: PartName::new(
-                    required_attribute(&attributes, "PartName")?.to_owned(),
-                )?,
+                part_name: PartName::new(required_attribute(&attributes, "PartName")?.to_owned())?,
                 content_type: required_attribute(&attributes, "ContentType")?.to_owned(),
             });
         }
@@ -298,9 +277,7 @@ fn handle_relationship_element(
             target,
         })
         .map_err(|error| match error {
-            PackageError::DuplicateRelationshipId(id) => {
-                XmlParseError::DuplicateRelationshipId(id)
-            }
+            PackageError::DuplicateRelationshipId(id) => XmlParseError::DuplicateRelationshipId(id),
             other => XmlParseError::Malformed(other.to_string()),
         })
 }
@@ -348,10 +325,7 @@ fn required_attribute<'a>(
     optional_attribute(attributes, name).ok_or(XmlParseError::MissingAttribute(name))
 }
 
-fn optional_attribute<'a>(
-    attributes: &'a [(String, String)],
-    name: &str,
-) -> Option<&'a str> {
+fn optional_attribute<'a>(attributes: &'a [(String, String)], name: &str) -> Option<&'a str> {
     attributes
         .iter()
         .find(|(key, _)| key == name)
@@ -366,9 +340,7 @@ fn ensure_input_limit(input: &[u8], limits: XmlLimits) -> Result<(), XmlParseErr
 }
 
 fn checked_depth(current: usize, limits: XmlLimits) -> Result<usize, XmlParseError> {
-    let next = current
-        .checked_add(1)
-        .ok_or(XmlParseError::DepthExceeded)?;
+    let next = current.checked_add(1).ok_or(XmlParseError::DepthExceeded)?;
     if next > limits.max_depth {
         return Err(XmlParseError::DepthExceeded);
     }
@@ -422,9 +394,7 @@ mod tests {
         let hyperlink = relationships.get(&RelationshipId::new("rId2")).unwrap();
         assert_eq!(
             hyperlink.target,
-            RelationshipTarget::External(
-                "https://example.invalid/a?x=1&y=2".to_owned()
-            )
+            RelationshipTarget::External("https://example.invalid/a?x=1&y=2".to_owned())
         );
     }
 
