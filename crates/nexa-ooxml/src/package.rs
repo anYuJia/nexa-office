@@ -220,7 +220,9 @@ mod tests {
         let mut package = Package::new(content_types());
         let name = PartName::new("/word/document.xml").unwrap();
 
-        package.insert_part(name.clone(), b"first".to_vec()).unwrap();
+        package
+            .insert_part(name.clone(), b"first".to_vec())
+            .unwrap();
 
         assert_eq!(
             package.insert_part(name.clone(), b"second".to_vec()),
@@ -248,9 +250,7 @@ mod tests {
             .insert(Relationship {
                 id: id.clone(),
                 relationship_type: "type-a".into(),
-                target: RelationshipTarget::Internal(
-                    PartName::new("/word/styles.xml").unwrap(),
-                ),
+                target: RelationshipTarget::Internal(PartName::new("/word/styles.xml").unwrap()),
             })
             .unwrap();
 
