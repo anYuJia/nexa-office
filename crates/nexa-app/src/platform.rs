@@ -52,9 +52,11 @@ pub fn settings_path() -> Option<PathBuf> {
         .map(PathBuf::from)
         .map(|path| path.join("nexa-office").join("settings.conf"))
         .or_else(|| {
-            env::var_os("HOME")
-                .map(PathBuf::from)
-                .map(|path| path.join(".config").join("nexa-office").join("settings.conf"))
+            env::var_os("HOME").map(PathBuf::from).map(|path| {
+                path.join(".config")
+                    .join("nexa-office")
+                    .join("settings.conf")
+            })
         })
 }
 
