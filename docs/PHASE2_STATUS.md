@@ -18,12 +18,12 @@ Implemented:
 - relationship collections with duplicate-ID rejection;
 - explicit missing-content-type and duplicate-part errors.
 
-This first batch deliberately adds no ZIP/XML crate yet. The repository keeps `cargo --locked` intact while the adapters are evaluated separately.
+The repository keeps `cargo --locked` intact while parser/package dependencies are introduced through pinned, minimal feature sets.
 
 ## Next batches
 
 1. streaming XML adapter and parsing limits — implemented for OPC metadata;
-2. ZIP adapter with lazy entry reads and decompression enforcement;
+2. ZIP adapter with lazy entry reads and decompression enforcement — implementation in progress;
 3. `[Content_Types].xml` and `.rels` parsers/writers;
 4. OPC package graph and unknown-part preservation;
 5. deterministic package rewrite / round-trip fixture harness;
@@ -45,3 +45,19 @@ Implemented:
 - entity normalization for predefined XML entities;
 - duplicate relationship-ID rejection;
 - internal target resolution through the package-root safety rules.
+
+
+## Batch 3 — lazy ZIP package reader
+
+Implementation:
+
+- pinned `zip 8.6.0` with default features disabled;
+- only `deflate-flate2-zlib-rs` enabled for Stored/Deflate OOXML packages;
+- central-directory validation before any document part is exposed;
+- overlapping ZIP entry rejection;
+- encrypted-entry and symlink rejection;
+- unsupported compression-method rejection;
+- canonical OPC path validation and duplicate-part rejection;
+- package entry/size/compression-ratio limits applied from ZIP metadata;
+- per-part bounded decompression on demand;
+- direct lazy access to `[Content_Types].xml` and relationship parts.

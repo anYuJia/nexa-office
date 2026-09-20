@@ -12,6 +12,7 @@ mod package;
 mod part_name;
 mod relationships;
 mod xml;
+mod zip_package;
 
 pub use content_types::{ContentTypeMap, ContentTypeRule};
 pub use limits::{PackageLimits, PackageUsage};
@@ -24,4 +25,7 @@ pub use relationships::{
 pub use xml::{
     XmlLimits, XmlParseError, parse_content_types, parse_content_types_with_limits,
     parse_relationships, parse_relationships_with_limits,
+};
+pub use zip_package::{
+    LazyZipPackage, PackageCompression, ZipEntryMetadata, ZipPackageError,
 };

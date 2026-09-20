@@ -48,8 +48,17 @@ impl PackageLimits {
             return Err(LimitViolation::SinglePartTooLarge);
         }
 
-        if compressed_size > 0 && uncompressed_size / compressed_size > self.max_compression_ratio {
+        if compressed_size == 0 && uncompressed_size > 0 {
             return Err(LimitViolation::SuspiciousCompressionRatio);
+        }
+
+        if compressed_size > 0 {
+            let allowed_uncompressed = compressed_size
+                .checked_mul(self.max_compression_ratio)
+                .ok_or(LimitViolation::IntegerOverflow)?;
+            if uncompressed_size > allowed_uncompressed {
+                return Err(LimitViolation::SuspiciousCompressionRatio);
+            }
         }
 
         usage.entries = usage

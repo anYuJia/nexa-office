@@ -1,0 +1,34 @@
+name: Bootstrap Cargo Lock
+
+on:
+  push:
+    branches:
+      - feat/phase-2-ooxml-opc
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: feat/phase-2-ooxml-opc
+
+      - name: Resolve manifest into Cargo.lock
+        run: cargo metadata --format-version 1 --no-deps > /dev/null
+
+      - name: Commit lockfile update
+        shell: bash
+        run: |
+          if git diff --quiet -- Cargo.lock; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          git commit -m "build: lock minimal ZIP dependency"
+          git push origin "HEAD:feat/phase-2-ooxml-opc"
