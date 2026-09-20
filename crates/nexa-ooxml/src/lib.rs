@@ -17,5 +17,6 @@ pub use limits::{PackageLimits, PackageUsage};
 pub use package::{Package, PackageError, Part, RelationshipSet};
 pub use part_name::{PartName, PartNameError};
 pub use relationships::{
-    Relationship, RelationshipId, RelationshipTarget, TargetMode, resolve_internal_target,
+    Relationship, RelationshipId, RelationshipTarget, TargetMode, relationship_part_name,
+    resolve_internal_target, source_part_from_relationship_part,
 };
