@@ -82,12 +82,16 @@ mod tests {
         let document = PartName::new("/word/document.xml").unwrap();
         map.insert(ContentTypeRule::Override {
             part_name: document.clone(),
-            content_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml".into(),
+            content_type:
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+                    .into(),
         });
 
         assert_eq!(
             map.content_type_for(&document),
-            Some("application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml")
+            Some(
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+            )
         );
         assert_eq!(
             map.content_type_for(&PartName::new("/custom/item.XML").unwrap()),
