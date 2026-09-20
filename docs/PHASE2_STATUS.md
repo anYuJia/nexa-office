@@ -13,7 +13,10 @@ Implemented:
 - explicit rejection of relationship targets that escape the package root;
 - compact content-type defaults/overrides with override precedence;
 - package resource-budget model for entry count, per-part size, total decompressed size, and compression ratio;
-- unit tests for common Word/Excel/PowerPoint path patterns and hostile inputs.
+- unit tests for common Word/Excel/PowerPoint path patterns and hostile inputs;
+- in-memory OPC package graph with opaque unknown-part byte preservation;
+- relationship collections with duplicate-ID rejection;
+- explicit missing-content-type and duplicate-part errors.
 
 This first batch deliberately adds no ZIP/XML crate yet. The repository keeps `cargo --locked` intact while the adapters are evaluated separately.
 

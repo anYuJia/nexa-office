@@ -8,11 +8,13 @@
 
 mod content_types;
 mod limits;
+mod package;
 mod part_name;
 mod relationships;
 
 pub use content_types::{ContentTypeMap, ContentTypeRule};
 pub use limits::{PackageLimits, PackageUsage};
+pub use package::{Package, PackageError, Part, RelationshipSet};
 pub use part_name::{PartName, PartNameError};
 pub use relationships::{
     Relationship, RelationshipId, RelationshipTarget, TargetMode, resolve_internal_target,
