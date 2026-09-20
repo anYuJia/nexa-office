@@ -45,11 +45,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.run()
 }
 
-fn update_state(
-    state: &Rc<RefCell<AppState>>,
-    ui: &slint::Weak<AppWindow>,
-    command: AppCommand,
-) {
+fn update_state(state: &Rc<RefCell<AppState>>, ui: &slint::Weak<AppWindow>, command: AppCommand) {
     let status = {
         let mut state = state.borrow_mut();
         state.apply(command);
