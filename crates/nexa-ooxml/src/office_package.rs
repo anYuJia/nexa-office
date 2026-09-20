@@ -1,6 +1,4 @@
-use crate::{
-    ContentTypeMap, LazyZipPackage, PartName, RelationshipTarget, ZipPackageError,
-};
+use crate::{ContentTypeMap, LazyZipPackage, PartName, RelationshipTarget, ZipPackageError};
 use std::{
     error::Error,
     fmt,
@@ -72,7 +70,10 @@ impl fmt::Display for OfficePackageError {
                 write!(f, "main Office part has no content type: {part}")
             }
             Self::UnsupportedMainPartContentType(content_type) => {
-                write!(f, "unsupported Office main-part content type: {content_type}")
+                write!(
+                    f,
+                    "unsupported Office main-part content type: {content_type}"
+                )
             }
         }
     }

@@ -118,10 +118,7 @@ pub fn write_content_types(content_types: &ContentTypeMap) -> Vec<u8> {
 }
 
 #[must_use]
-pub fn write_relationships(
-    source: Option<&PartName>,
-    relationships: &RelationshipSet,
-) -> Vec<u8> {
+pub fn write_relationships(source: Option<&PartName>, relationships: &RelationshipSet) -> Vec<u8> {
     let mut output = String::from(
         r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">"#,
     );

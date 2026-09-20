@@ -17,9 +17,7 @@ mod zip_package;
 
 pub use content_types::{ContentTypeMap, ContentTypeRule};
 pub use limits::{LimitViolation, PackageLimits, PackageUsage};
-pub use office_package::{
-    OfficePackageError, OfficePackageInfo, OfficePackageKind,
-};
+pub use office_package::{OfficePackageError, OfficePackageInfo, OfficePackageKind};
 pub use package::{Package, PackageError, Part, RelationshipSet};
 pub use part_name::{PartName, PartNameError};
 pub use relationships::{
@@ -29,8 +27,7 @@ pub use relationships::{
 };
 pub use xml::{
     XmlLimits, XmlParseError, parse_content_types, parse_content_types_with_limits,
-    parse_relationships, parse_relationships_with_limits, write_content_types,
-    write_relationships,
+    parse_relationships, parse_relationships_with_limits, write_content_types, write_relationships,
 };
 pub use zip_package::{
     LazyZipPackage, PackageCompression, ZipEntryMetadata, ZipPackageError, write_owned_package,

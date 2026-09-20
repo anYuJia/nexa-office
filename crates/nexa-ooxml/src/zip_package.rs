@@ -336,10 +336,7 @@ impl<R: Read + Seek> LazyZipPackage<R> {
         Ok(package)
     }
 
-    pub fn repack_validated<W: Write + Seek>(
-        &mut self,
-        writer: W,
-    ) -> Result<W, ZipPackageError> {
+    pub fn repack_validated<W: Write + Seek>(&mut self, writer: W) -> Result<W, ZipPackageError> {
         let entries: Vec<ZipEntryMetadata> = self.entries.values().cloned().collect();
         let mut output = ZipWriter::new(writer);
 
@@ -531,9 +528,17 @@ mod tests {
     fn validated_repack_preserves_unknown_part_bytes() {
         let unknown = [0, 255, 17, 42, 0, 9];
         let bytes = build_zip(&[
-            ("[Content_Types].xml", CONTENT_TYPES, CompressionMethod::Deflated),
+            (
+                "[Content_Types].xml",
+                CONTENT_TYPES,
+                CompressionMethod::Deflated,
+            ),
             ("_rels/.rels", ROOT_RELS, CompressionMethod::Deflated),
-            ("word/document.xml", b"<w:document/>", CompressionMethod::Deflated),
+            (
+                "word/document.xml",
+                b"<w:document/>",
+                CompressionMethod::Deflated,
+            ),
             ("customXml/item1.bin", &unknown, CompressionMethod::Stored),
         ]);
         let mut package = LazyZipPackage::open(Cursor::new(bytes)).unwrap();
@@ -555,9 +560,17 @@ mod tests {
     #[test]
     fn owned_package_round_trip_preserves_parts_and_relationships() {
         let bytes = build_zip(&[
-            ("[Content_Types].xml", CONTENT_TYPES, CompressionMethod::Deflated),
+            (
+                "[Content_Types].xml",
+                CONTENT_TYPES,
+                CompressionMethod::Deflated,
+            ),
             ("_rels/.rels", ROOT_RELS, CompressionMethod::Deflated),
-            ("word/document.xml", b"<w:document/>", CompressionMethod::Deflated),
+            (
+                "word/document.xml",
+                b"<w:document/>",
+                CompressionMethod::Deflated,
+            ),
         ]);
         let mut lazy = LazyZipPackage::open(Cursor::new(bytes)).unwrap();
         let owned = lazy.load_owned_package().unwrap();
