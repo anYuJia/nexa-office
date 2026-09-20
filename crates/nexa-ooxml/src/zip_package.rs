@@ -5,7 +5,7 @@ use crate::{
     write_content_types, write_relationships,
 };
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     error::Error,
     fmt,
     io::{Read, Seek, Write},
@@ -336,6 +336,63 @@ impl<R: Read + Seek> LazyZipPackage<R> {
         Ok(package)
     }
 
+    /// Rebuild a validated package while raw-copying unchanged compressed entries.
+    ///
+    /// Replacement bytes are compressed only for changed/new Parts. Unchanged Parts are
+    /// copied from their already-validated raw ZIP representation without decompression.
+    pub fn rewrite_with_replacements<W: Write + Seek>(
+        &mut self,
+        writer: W,
+        replacements: &BTreeMap<PartName, Vec<u8>>,
+        removals: &BTreeSet<PartName>,
+    ) -> Result<W, ZipPackageError> {
+        let entries: Vec<ZipEntryMetadata> = self.entries.values().cloned().collect();
+        let mut output = ZipWriter::new(writer);
+        let mut written = BTreeSet::new();
+
+        for metadata in entries {
+            if removals.contains(&metadata.part_name) {
+                continue;
+            }
+
+            if let Some(bytes) = replacements.get(&metadata.part_name) {
+                write_zip_entry(
+                    &mut output,
+                    metadata.part_name.zip_entry_name(),
+                    bytes,
+                    zip_options(metadata.compression),
+                )?;
+                written.insert(metadata.part_name.clone());
+                continue;
+            }
+
+            let raw = self
+                .archive
+                .by_index_raw(metadata.index)
+                .map_err(|error| ZipPackageError::Archive(error.to_string()))?;
+            output
+                .raw_copy_file(raw)
+                .map_err(|error| ZipPackageError::Write(error.to_string()))?;
+        }
+
+        for (part_name, bytes) in replacements {
+            if written.contains(part_name) || self.entries.contains_key(part_name) {
+                continue;
+            }
+
+            write_zip_entry(
+                &mut output,
+                part_name.zip_entry_name(),
+                bytes,
+                zip_options(PackageCompression::Deflated),
+            )?;
+        }
+
+        output
+            .finish()
+            .map_err(|error| ZipPackageError::Write(error.to_string()))
+    }
+
     pub fn repack_validated<W: Write + Seek>(&mut self, writer: W) -> Result<W, ZipPackageError> {
         let entries: Vec<ZipEntryMetadata> = self.entries.values().cloned().collect();
         let mut output = ZipWriter::new(writer);
@@ -521,6 +578,53 @@ mod tests {
         assert_eq!(
             relationship.target,
             crate::RelationshipTarget::Internal(PartName::new("/word/document.xml").unwrap())
+        );
+    }
+
+    #[test]
+    fn selective_rewrite_preserves_unmodified_opaque_part() {
+        let unknown = [0, 255, 17, 42, 0, 9];
+        let bytes = build_zip(&[
+            (
+                "[Content_Types].xml",
+                CONTENT_TYPES,
+                CompressionMethod::Deflated,
+            ),
+            (
+                "word/document.xml",
+                b"<w:document>old</w:document>",
+                CompressionMethod::Deflated,
+            ),
+            ("customXml/item1.bin", &unknown, CompressionMethod::Stored),
+        ]);
+        let mut package = LazyZipPackage::open(Cursor::new(bytes)).unwrap();
+        let mut replacements = BTreeMap::new();
+        replacements.insert(
+            PartName::new("/word/document.xml").unwrap(),
+            b"<w:document>new</w:document>".to_vec(),
+        );
+
+        let rewritten = package
+            .rewrite_with_replacements(
+                Cursor::new(Vec::new()),
+                &replacements,
+                &BTreeSet::new(),
+            )
+            .unwrap()
+            .into_inner();
+        let mut reopened = LazyZipPackage::open(Cursor::new(rewritten)).unwrap();
+
+        assert_eq!(
+            reopened
+                .read_part(&PartName::new("/word/document.xml").unwrap())
+                .unwrap(),
+            b"<w:document>new</w:document>"
+        );
+        assert_eq!(
+            reopened
+                .read_part(&PartName::new("/customXml/item1.bin").unwrap())
+                .unwrap(),
+            unknown
         );
     }
 
