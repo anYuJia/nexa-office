@@ -38,6 +38,7 @@ pub struct Relationship {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RelationshipTargetError {
     InvalidPartName(PartNameError),
+    InvalidRelationshipPartName,
     EscapesPackageRoot,
     EmptyTarget,
     QueryOrFragment,
@@ -47,6 +48,7 @@ impl fmt::Display for RelationshipTargetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidPartName(error) => write!(f, "invalid relationship target: {error}"),
+            Self::InvalidRelationshipPartName => f.write_str("invalid OPC relationship part name"),
             Self::EscapesPackageRoot => f.write_str("relationship target escapes package root"),
             Self::EmptyTarget => f.write_str("relationship target is empty"),
             Self::QueryOrFragment => {
@@ -62,6 +64,47 @@ impl From<PartNameError> for RelationshipTargetError {
     fn from(value: PartNameError) -> Self {
         Self::InvalidPartName(value)
     }
+}
+
+/// Return the OPC relationships part name for a package or source part.
+pub fn relationship_part_name(source: Option<&PartName>) -> Result<PartName, PartNameError> {
+    match source {
+        None => PartName::new("/_rels/.rels"),
+        Some(source) => {
+            let path = source.as_str();
+            let slash = path.rfind('/').expect("validated part name");
+            let directory = &path[..=slash];
+            let file_name = &path[slash + 1..];
+
+            PartName::new(format!("{directory}_rels/{file_name}.rels"))
+        }
+    }
+}
+
+/// Recover the source part represented by an OPC relationships part.
+///
+/// `/_rels/.rels` is package-level and therefore maps to `None`.
+pub fn source_part_from_relationship_part(
+    relationship_part: &PartName,
+) -> Result<Option<PartName>, RelationshipTargetError> {
+    if relationship_part.as_str() == "/_rels/.rels" {
+        return Ok(None);
+    }
+
+    let path = relationship_part.as_str();
+    let Some((directory, file_name)) = path.rsplit_once("/_rels/") else {
+        return Err(RelationshipTargetError::InvalidRelationshipPartName);
+    };
+    let Some(source_file) = file_name.strip_suffix(".rels") else {
+        return Err(RelationshipTargetError::InvalidRelationshipPartName);
+    };
+    if source_file.is_empty() {
+        return Err(RelationshipTargetError::InvalidRelationshipPartName);
+    }
+
+    PartName::new(format!("{directory}/{source_file}"))
+        .map(Some)
+        .map_err(RelationshipTargetError::InvalidPartName)
 }
 
 /// Resolve an internal OPC relationship target relative to its source part.
@@ -110,6 +153,34 @@ pub fn resolve_internal_target(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn maps_package_relationship_part() {
+        let rels = relationship_part_name(None).unwrap();
+        assert_eq!(rels.as_str(), "/_rels/.rels");
+        assert_eq!(source_part_from_relationship_part(&rels).unwrap(), None);
+    }
+
+    #[test]
+    fn maps_part_relationship_part_bidirectionally() {
+        let source = PartName::new("/word/document.xml").unwrap();
+        let rels = relationship_part_name(Some(&source)).unwrap();
+
+        assert_eq!(rels.as_str(), "/word/_rels/document.xml.rels");
+        assert_eq!(
+            source_part_from_relationship_part(&rels).unwrap(),
+            Some(source)
+        );
+    }
+
+    #[test]
+    fn rejects_non_relationship_part_name() {
+        let part = PartName::new("/word/document.xml").unwrap();
+        assert_eq!(
+            source_part_from_relationship_part(&part),
+            Err(RelationshipTargetError::InvalidRelationshipPartName)
+        );
+    }
 
     #[test]
     fn resolves_part_relative_target() {
