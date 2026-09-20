@@ -95,37 +95,46 @@ fn bind_editor_actions(
     state: Rc<RefCell<AppState>>,
     settings_path: Option<PathBuf>,
 ) {
-    for (editor, connect) in [
-        (
-            EditorKind::Docs,
-            AppWindow::on_create_docs as fn(&AppWindow, Box<dyn Fn()>),
-        ),
-        (
-            EditorKind::Sheets,
-            AppWindow::on_create_sheets as fn(&AppWindow, Box<dyn Fn()>),
-        ),
-        (
-            EditorKind::Slides,
-            AppWindow::on_create_slides as fn(&AppWindow, Box<dyn Fn()>),
-        ),
-    ] {
+    {
         let state = Rc::clone(&state);
         let ui_weak = ui.as_weak();
         let settings_path = settings_path.clone();
-        connect(
-            ui,
-            Box::new(move || {
-                update_state(
-                    &state,
-                    &ui_weak,
-                    settings_path.as_deref(),
-                    AppCommand::New(editor),
-                );
-            }),
-        );
+        ui.on_create_docs(move || {
+            update_state(
+                &state,
+                &ui_weak,
+                settings_path.as_deref(),
+                AppCommand::New(EditorKind::Docs),
+            );
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let ui_weak = ui.as_weak();
+        let settings_path = settings_path.clone();
+        ui.on_create_sheets(move || {
+            update_state(
+                &state,
+                &ui_weak,
+                settings_path.as_deref(),
+                AppCommand::New(EditorKind::Sheets),
+            );
+        });
+    }
+
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_create_slides(move || {
+            update_state(
+                &state,
+                &ui_weak,
+                settings_path.as_deref(),
+                AppCommand::New(EditorKind::Slides),
+            );
+        });
     }
 }
-
 fn bind_settings(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: Option<PathBuf>) {
     {
         let state = Rc::clone(&state);
@@ -164,7 +173,7 @@ fn update_state(
     command: AppCommand,
 ) {
     let persist_settings = matches!(
-        command,
+        &command,
         AppCommand::SetReopenLastSession(_) | AppCommand::SetAutosaveEnabled(_)
     );
 
