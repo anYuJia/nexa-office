@@ -1,4 +1,4 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 use nexa_core::{AppCommand, AppState, EditorKind};
 use std::{cell::RefCell, rc::Rc};
