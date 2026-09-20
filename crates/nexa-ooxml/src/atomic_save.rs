@@ -40,10 +40,7 @@ impl From<ZipPackageError> for AtomicSaveError {
     }
 }
 
-pub fn save_package_atomic(
-    package: &Package,
-    destination: &Path,
-) -> Result<(), AtomicSaveError> {
+pub fn save_package_atomic(package: &Package, destination: &Path) -> Result<(), AtomicSaveError> {
     let parent = destination
         .parent()
         .ok_or(AtomicSaveError::InvalidDestination)?;
@@ -178,9 +175,6 @@ mod tests {
             .expect("system clock should follow the Unix epoch")
             .as_nanos();
 
-        std::env::temp_dir().join(format!(
-            "nexa-ooxml-atomic-save-{}-{nonce}",
-            process::id()
-        ))
+        std::env::temp_dir().join(format!("nexa-ooxml-atomic-save-{}-{nonce}", process::id()))
     }
 }

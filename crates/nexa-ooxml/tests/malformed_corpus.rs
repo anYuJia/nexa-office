@@ -48,7 +48,9 @@ fn rejects_unknown_main_part_content_type() {
     });
 
     let mut package = Package::new(content_types);
-    package.insert_part(main_part.clone(), b"<vendor/>".to_vec()).unwrap();
+    package
+        .insert_part(main_part.clone(), b"<vendor/>".to_vec())
+        .unwrap();
     package
         .package_relationships_mut()
         .insert(Relationship {
@@ -122,7 +124,9 @@ fn package_with_root_relationship(target: RelationshipTarget) -> Vec<u8> {
     });
 
     let mut package = Package::new(content_types);
-    package.insert_part(main_part, b"<w:document/>".to_vec()).unwrap();
+    package
+        .insert_part(main_part, b"<w:document/>".to_vec())
+        .unwrap();
     package
         .package_relationships_mut()
         .insert(Relationship {

@@ -75,7 +75,10 @@ fn validated_repack_keeps_kind_and_unknown_bytes_for_all_office_families() {
             .into_inner();
         let mut reopened = LazyZipPackage::open(Cursor::new(repacked)).unwrap();
 
-        assert_eq!(reopened.office_package_info().unwrap().kind(), expected_kind);
+        assert_eq!(
+            reopened.office_package_info().unwrap().kind(),
+            expected_kind
+        );
         assert_eq!(
             reopened
                 .read_part(&PartName::new("/customXml/preserve.bin").unwrap())
@@ -85,12 +88,7 @@ fn validated_repack_keeps_kind_and_unknown_bytes_for_all_office_families() {
     }
 }
 
-fn assert_kind(
-    main_part: &str,
-    content_type: &str,
-    body: &[u8],
-    expected_kind: OfficePackageKind,
-) {
+fn assert_kind(main_part: &str, content_type: &str, body: &[u8], expected_kind: OfficePackageKind) {
     let bytes = build_package(main_part, content_type, body);
     let mut package = LazyZipPackage::open(Cursor::new(bytes)).unwrap();
     let info = package.office_package_info().unwrap();
@@ -121,7 +119,9 @@ fn build_package(main_part: &str, content_type: &str, body: &[u8]) -> Vec<u8> {
     });
 
     let mut package = Package::new(content_types);
-    package.insert_part(main_part.clone(), body.to_vec()).unwrap();
+    package
+        .insert_part(main_part.clone(), body.to_vec())
+        .unwrap();
     package
         .insert_part(
             PartName::new("/customXml/preserve.bin").unwrap(),
