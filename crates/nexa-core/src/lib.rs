@@ -33,8 +33,8 @@ impl EditorKind {
 
 /// Small settings set used while Phase 1 establishes the native shell.
 ///
-/// The format intentionally remains simple and dependency-free. A richer schema can
-/// replace it later without leaking persistence concerns into the UI layer.
+/// The format intentionally remains simple and dependency-free. Phase 1 settings
+/// affect shell behavior immediately instead of pretending future editor features exist.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppSettings {
     show_status_bar: bool,
@@ -45,7 +45,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             show_status_bar: true,
-            compact_navigation: true,
+            compact_navigation: false,
         }
     }
 }
@@ -297,9 +297,9 @@ mod tests {
     fn settings_commands_update_only_the_requested_value() {
         let mut state = AppState::default();
 
-        state.apply(AppCommand::SetCompactNavigation(false));
+        state.apply(AppCommand::SetCompactNavigation(true));
 
-        assert!(!state.settings().compact_navigation());
+        assert!(state.settings().compact_navigation());
         assert!(state.settings().show_status_bar());
     }
 }
