@@ -1,0 +1,144 @@
+use crate::{PartName, PartNameError};
+use std::{error::Error, fmt};
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RelationshipId(String);
+
+impl RelationshipId {
+    #[must_use]
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TargetMode {
+    Internal,
+    External,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RelationshipTarget {
+    Internal(PartName),
+    External(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Relationship {
+    pub id: RelationshipId,
+    pub relationship_type: String,
+    pub target: RelationshipTarget,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RelationshipTargetError {
+    InvalidPartName(PartNameError),
+    EscapesPackageRoot,
+    EmptyTarget,
+    QueryOrFragment,
+}
+
+impl fmt::Display for RelationshipTargetError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidPartName(error) => write!(f, "invalid relationship target: {error}"),
+            Self::EscapesPackageRoot => f.write_str("relationship target escapes package root"),
+            Self::EmptyTarget => f.write_str("relationship target is empty"),
+            Self::QueryOrFragment => {
+                f.write_str("internal relationship target contains query or fragment")
+            }
+        }
+    }
+}
+
+impl Error for RelationshipTargetError {}
+
+impl From<PartNameError> for RelationshipTargetError {
+    fn from(value: PartNameError) -> Self {
+        Self::InvalidPartName(value)
+    }
+}
+
+/// Resolve an internal OPC relationship target relative to its source part.
+///
+/// Package-level relationships pass `None` as the source.
+pub fn resolve_internal_target(
+    source: Option<&PartName>,
+    target: &str,
+) -> Result<PartName, RelationshipTargetError> {
+    if target.is_empty() {
+        return Err(RelationshipTargetError::EmptyTarget);
+    }
+    if target.contains(['?', '#']) {
+        return Err(RelationshipTargetError::QueryOrFragment);
+    }
+    if target.starts_with('/') {
+        return Ok(PartName::new(target.to_owned())?);
+    }
+
+    let base = source.map_or("/", PartName::parent_path);
+    let mut segments: Vec<&str> = base
+        .trim_matches('/')
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .collect();
+
+    for segment in target.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                if segments.pop().is_none() {
+                    return Err(RelationshipTargetError::EscapesPackageRoot);
+                }
+            }
+            value => segments.push(value),
+        }
+    }
+
+    if segments.is_empty() {
+        return Err(RelationshipTargetError::EmptyTarget);
+    }
+
+    PartName::new(format!("/{}", segments.join("/"))).map_err(Into::into)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_part_relative_target() {
+        let source = PartName::new("/word/document.xml").unwrap();
+        let target = resolve_internal_target(Some(&source), "media/image1.png").unwrap();
+
+        assert_eq!(target.as_str(), "/word/media/image1.png");
+    }
+
+    #[test]
+    fn resolves_parent_segments_without_leaving_package() {
+        let source = PartName::new("/ppt/slides/slide1.xml").unwrap();
+        let target = resolve_internal_target(Some(&source), "../slideLayouts/slideLayout1.xml").unwrap();
+
+        assert_eq!(target.as_str(), "/ppt/slideLayouts/slideLayout1.xml");
+    }
+
+    #[test]
+    fn package_relationship_is_relative_to_root() {
+        let target = resolve_internal_target(None, "word/document.xml").unwrap();
+        assert_eq!(target.as_str(), "/word/document.xml");
+    }
+
+    #[test]
+    fn rejects_root_escape() {
+        let source = PartName::new("/word/document.xml").unwrap();
+        assert_eq!(
+            resolve_internal_target(Some(&source), "../../evil.xml"),
+            Err(RelationshipTargetError::EscapesPackageRoot)
+        );
+    }
+}
