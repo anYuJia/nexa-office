@@ -1,0 +1,86 @@
+name: Native Performance Smoke
+
+on:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/nexa-app/**"
+      - "crates/nexa-core/**"
+      - "scripts/perf/**"
+      - ".github/workflows/perf-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux-native-smoke:
+    name: Linux native release smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install native runtime/build dependencies
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y
+          libfontconfig-dev
+          libx11-xcb-dev
+          libx11-dev
+          libxcb-shape0-dev
+          libxcb-xfixes0-dev
+          libxcursor-dev
+          libxkbcommon-dev
+          libxkbcommon-x11-dev
+          xinput
+          xvfb
+
+      - name: Verify pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-perf
+
+      - name: Build release shell
+        run: cargo build --release --locked -p nexa-app
+
+      - name: Enforce release shell binary gross-regression limit
+        shell: bash
+        run: |
+          bytes="$(stat -c%s target/release/nexa-office)"
+          max_bytes=26214400
+          echo "release_binary_bytes=$bytes"
+          if (( bytes > max_bytes )); then
+            echo "Release shell binary exceeds 25 MiB CI smoke limit" >&2
+            exit 1
+          fi
+
+      - name: Smoke launch and sample settled memory
+        shell: bash
+        run: |
+          mkdir -p perf-results
+          {
+            echo "commit=${GITHUB_SHA}"
+            echo "runner=${RUNNER_OS}/${RUNNER_ARCH}"
+            echo "kernel=$(uname -a)"
+            echo "release_binary_bytes=$(stat -c%s target/release/nexa-office)"
+            SETTLE_SECONDS=30 CPU_SAMPLE_SECONDS=10 MAX_PRIVATE_KB=61440 MAX_IDLE_CPU_PERCENT=2.0 xvfb-run -a bash scripts/perf/linux_idle_memory.sh target/release/nexa-office
+          } | tee perf-results/linux-ci-smoke.txt
+
+      - name: Upload smoke result
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-native-perf-smoke
+          path: perf-results/linux-ci-smoke.txt
+          if-no-files-found: error

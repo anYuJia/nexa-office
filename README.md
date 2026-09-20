@@ -21,9 +21,9 @@ The exact dependency set is not frozen. New foundational dependencies require an
 
 ## Status
 
-Nexa Office is currently in **Phase 0 — Engineering Constitution**.
+Nexa Office is currently in **Phase 1 — Native Shell and Measurement Baseline**.
 
-No editor implementation should be merged until the project charter, architecture boundaries, quality gates, testing strategy and performance budgets are in place.
+The native Rust workspace and Slint shell are running under Windows, macOS and Linux CI. Phase 1 is deliberately performance-gated: the shell renderer and runtime are being measured and reduced before OOXML implementation begins.
 
 ## Engineering documents
 
@@ -35,7 +35,20 @@ No editor implementation should be merged until the project charter, architectur
 - [Testing Strategy](docs/TESTING.md)
 - [Code Standards](docs/CODE_STANDARDS.md)
 - [Performance Budgets](docs/PERFORMANCE.md)
+- [Phase 1 Status](docs/PHASE1_STATUS.md)
+- [Phase 1 Performance Baseline](docs/PERFORMANCE_BASELINE.md)
+- [Architecture Decisions](docs/adr/README.md)
 - [Contribution Guide](CONTRIBUTING.md)
+
+## Development
+
+```bash
+cargo run --locked -p nexa-app
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+```
+
+The application shell is native. Core editor code must not introduce Chromium, Electron, Tauri, CEF, WebView, or a required JavaScript runtime.
 
 ## Core principle
 
