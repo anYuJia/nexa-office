@@ -192,10 +192,7 @@ fn update_state(
     }
 }
 
-fn persist_settings_if_available(
-    settings_path: Option<&std::path::Path>,
-    settings: &AppSettings,
-) {
+fn persist_settings_if_available(settings_path: Option<&std::path::Path>, settings: &AppSettings) {
     let Some(path) = settings_path else {
         return;
     };
