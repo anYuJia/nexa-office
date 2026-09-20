@@ -31,12 +31,7 @@ pub fn compare_packages(left: &Package, right: &Package) -> PackageDiff {
         .collect();
     let right_parts: BTreeMap<PartName, (&str, &[u8])> = right
         .parts()
-        .map(|part| {
-            (
-                part.name().clone(),
-                (part.content_type(), part.bytes()),
-            )
-        })
+        .map(|part| (part.name().clone(), (part.content_type(), part.bytes())))
         .collect();
 
     let added_parts = right_parts
