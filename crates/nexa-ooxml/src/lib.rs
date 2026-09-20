@@ -11,12 +11,17 @@ mod limits;
 mod package;
 mod part_name;
 mod relationships;
+mod xml;
 
 pub use content_types::{ContentTypeMap, ContentTypeRule};
 pub use limits::{PackageLimits, PackageUsage};
 pub use package::{Package, PackageError, Part, RelationshipSet};
 pub use part_name::{PartName, PartNameError};
 pub use relationships::{
-    Relationship, RelationshipId, RelationshipTarget, TargetMode, relationship_part_name,
-    resolve_internal_target, source_part_from_relationship_part,
+    Relationship, RelationshipId, RelationshipTarget, RelationshipTargetError, TargetMode,
+    relationship_part_name, resolve_internal_target, source_part_from_relationship_part,
+};
+pub use xml::{
+    XmlLimits, XmlParseError, parse_content_types, parse_content_types_with_limits,
+    parse_relationships, parse_relationships_with_limits,
 };

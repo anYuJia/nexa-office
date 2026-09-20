@@ -23,6 +23,7 @@ slint = { version = "=1.18.0", default-features = false, features = [
     "compat-1-18",
 ] }
 slint-build = "=1.18.0"
+quick-xml = { version = "=0.42.0", default-features = false }
 
 [profile.release]
 opt-level = "s"

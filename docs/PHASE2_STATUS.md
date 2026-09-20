@@ -22,7 +22,7 @@ This first batch deliberately adds no ZIP/XML crate yet. The repository keeps `c
 
 ## Next batches
 
-1. streaming XML adapter and parsing limits;
+1. streaming XML adapter and parsing limits — implemented for OPC metadata;
 2. ZIP adapter with lazy entry reads and decompression enforcement;
 3. `[Content_Types].xml` and `.rels` parsers/writers;
 4. OPC package graph and unknown-part preservation;
@@ -30,3 +30,18 @@ This first batch deliberately adds no ZIP/XML crate yet. The repository keeps `c
 6. DOCX, XLSX, and PPTX package-level smoke fixtures;
 7. malformed package corpus and fuzz targets;
 8. performance measurements before accepting ADR 0004 / 0005.
+
+
+## Batch 2 — streaming OPC metadata XML
+
+Implemented:
+
+- pinned `quick-xml 0.42.0` with default features disabled;
+- event-driven parsing with no generic DOM;
+- input-size, nesting-depth, and attribute-count limits;
+- explicit DOCTYPE rejection;
+- real `[Content_Types].xml` parsing;
+- real package/part `.rels` parsing;
+- entity normalization for predefined XML entities;
+- duplicate relationship-ID rejection;
+- internal target resolution through the package-root safety rules.
