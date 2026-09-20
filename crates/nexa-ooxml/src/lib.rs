@@ -7,6 +7,7 @@
 //! these types so they can be fuzzed and tested without filesystem or UI concerns.
 
 mod atomic_save;
+mod compare;
 mod content_types;
 mod limits;
 mod office_package;
@@ -17,6 +18,7 @@ mod xml;
 mod zip_package;
 
 pub use atomic_save::{AtomicSaveError, save_package_atomic};
+pub use compare::{PackageDiff, compare_packages};
 pub use content_types::{ContentTypeMap, ContentTypeRule};
 pub use limits::{LimitViolation, PackageLimits, PackageUsage};
 pub use office_package::{OfficePackageError, OfficePackageInfo, OfficePackageKind};

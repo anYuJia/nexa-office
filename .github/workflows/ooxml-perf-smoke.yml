@@ -50,11 +50,11 @@ jobs:
         shell: bash
         run: |
           rss_kb="$(awk -F: '/Maximum resident set size/ { gsub(/^[ 	]+|[ 	]+$/, "", $2); print $2 }' perf-results/ooxml-time.txt)"
-          max_rss_kb=196608
+          max_rss_kb=65536
           echo "peak_rss_kb=$rss_kb" | tee -a perf-results/ooxml-phase2.txt
           echo "ci_peak_rss_limit_kb=$max_rss_kb" | tee -a perf-results/ooxml-phase2.txt
           if [[ -z "$rss_kb" ]] || (( rss_kb > max_rss_kb )); then
-            echo "OOXML Phase 2 peak RSS exceeds 192 MiB smoke limit" >&2
+            echo "OOXML Phase 2 peak RSS exceeds 64 MiB smoke limit" >&2
             exit 1
           fi
 

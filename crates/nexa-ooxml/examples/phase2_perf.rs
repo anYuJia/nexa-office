@@ -49,7 +49,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("fixture_large_part_bytes={LARGE_PART_BYTES}");
     println!("source_zip_bytes={source_zip_bytes}");
     println!("indexed_entries={}", package.entries().count());
-    println!("declared_uncompressed_bytes={}", package.usage().total_uncompressed);
+    println!(
+        "declared_uncompressed_bytes={}",
+        package.usage().total_uncompressed
+    );
     println!("office_kind={:?}", info.kind());
     println!("main_part={}", main_part.as_str());
     println!("main_part_bytes={}", main_bytes.len());
@@ -105,13 +108,11 @@ fn build_fixture(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         deterministic_bytes(LARGE_PART_BYTES),
     )?;
 
-    package
-        .package_relationships_mut()
-        .insert(Relationship {
-            id: RelationshipId::new("rId1"),
-            relationship_type: OFFICE_DOCUMENT_RELATIONSHIP.into(),
-            target: RelationshipTarget::Internal(main_part),
-        })?;
+    package.package_relationships_mut().insert(Relationship {
+        id: RelationshipId::new("rId1"),
+        relationship_type: OFFICE_DOCUMENT_RELATIONSHIP.into(),
+        target: RelationshipTarget::Internal(main_part),
+    })?;
 
     let file = File::create(path)?;
     let file = write_owned_package(&package, file)?;
