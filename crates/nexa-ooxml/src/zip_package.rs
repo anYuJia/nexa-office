@@ -246,10 +246,7 @@ impl<R: Read + Seek> LazyZipPackage<R> {
 
         let capacity = metadata.uncompressed_size.min(8 * 1024 * 1024) as usize;
         let mut output = Vec::with_capacity(capacity);
-        let read_limit = self
-            .limits
-            .max_single_part_uncompressed
-            .saturating_add(1);
+        let read_limit = self.limits.max_single_part_uncompressed.saturating_add(1);
 
         (&mut file)
             .take(read_limit)
