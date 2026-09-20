@@ -49,6 +49,8 @@ Exit criteria:
 
 ## Phase 2 — OOXML / OPC Foundation
 
+Status: **Completed**.
+
 Planning window: 2-4 weeks.
 
 Scope:
