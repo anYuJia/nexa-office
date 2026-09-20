@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -27,6 +27,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref || github.ref }}
 
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
@@ -52,13 +54,18 @@ jobs:
       - name: Resolve dependency lockfile
         run: cargo generate-lockfile
 
-      - name: Upload generated lockfile
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v7
-        with:
-          name: phase-1-cargo-lock
-          path: Cargo.lock
-          if-no-files-found: error
+      - name: Bootstrap Cargo.lock into the Phase 1 branch
+        if: runner.os == 'Linux' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        run: |
+          if git ls-files --error-unmatch Cargo.lock >/dev/null 2>&1; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          git commit -m "build: lock Phase 1 dependencies"
+          git push origin "HEAD:${{ github.head_ref }}"
 
       - name: Format
         run: cargo fmt --all -- --check
