@@ -1,0 +1,166 @@
+component ActionCard inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    callback activated();
+
+    height: 108px;
+    background: #ffffff;
+    border-color: #e5e7eb;
+    border-width: 1px;
+    border-radius: 14px;
+
+    VerticalLayout {
+        padding: 18px;
+        spacing: 7px;
+
+        Text {
+            text: root.title;
+            color: #111827;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        Text {
+            text: root.subtitle;
+            color: #667085;
+            font-size: 13px;
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            root.activated();
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "Nexa Office";
+    width: 1120px;
+    height: 720px;
+    min-width: 760px;
+    min-height: 520px;
+    background: #f7f8fa;
+
+    in-out property <string> status-text: "Native shell ready";
+
+    callback create-docs();
+    callback create-sheets();
+    callback create-slides();
+    callback go-home();
+
+    VerticalLayout {
+        padding: 30px;
+        spacing: 28px;
+
+        HorizontalLayout {
+            height: 48px;
+
+            Text {
+                text: "Nexa";
+                color: #101828;
+                font-size: 26px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                background: transparent;
+            }
+
+            Rectangle {
+                width: 76px;
+                height: 36px;
+                border-radius: 10px;
+                background: #ffffff;
+                border-color: #e5e7eb;
+                border-width: 1px;
+
+                Text {
+                    text: "Home";
+                    color: #344054;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    font-size: 13px;
+                }
+
+                TouchArea {
+                    clicked => {
+                        root.go-home();
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: 8px;
+
+            Text {
+                text: "Native office, without a browser engine.";
+                color: #101828;
+                font-size: 30px;
+                font-weight: 700;
+            }
+
+            Text {
+                text: "Phase 1 establishes the shell, architecture boundaries, CI, and measurable performance baseline.";
+                color: #667085;
+                font-size: 15px;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 14px;
+
+            ActionCard {
+                horizontal-stretch: 1;
+                title: "Docs";
+                subtitle: "DOCX editor";
+                activated => {
+                    root.create-docs();
+                }
+            }
+
+            ActionCard {
+                horizontal-stretch: 1;
+                title: "Sheets";
+                subtitle: "XLSX workbook";
+                activated => {
+                    root.create-sheets();
+                }
+            }
+
+            ActionCard {
+                horizontal-stretch: 1;
+                title: "Slides";
+                subtitle: "PPTX presentation";
+                activated => {
+                    root.create-slides();
+                }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+            background: transparent;
+        }
+
+        Rectangle {
+            height: 44px;
+            background: #ffffff;
+            border-color: #e5e7eb;
+            border-width: 1px;
+            border-radius: 10px;
+
+            Text {
+                x: 14px;
+                width: parent.width - 28px;
+                text: root.status-text;
+                color: #475467;
+                vertical-alignment: center;
+                font-size: 13px;
+            }
+        }
+    }
+}

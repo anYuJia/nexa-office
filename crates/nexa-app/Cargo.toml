@@ -1,0 +1,19 @@
+[package]
+name = "nexa-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "nexa-office"
+path = "src/main.rs"
+
+[dependencies]
+nexa-core = { path = "../nexa-core" }
+slint.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true
