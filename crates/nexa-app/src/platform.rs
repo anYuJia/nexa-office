@@ -26,36 +26,40 @@ impl PlatformInfo {
     }
 }
 
+#[cfg(target_os = "windows")]
 #[must_use]
 pub fn settings_path() -> Option<PathBuf> {
-    #[cfg(target_os = "windows")]
-    {
-        return env::var_os("APPDATA")
-            .map(PathBuf::from)
-            .map(|path| path.join("Nexa Office").join("settings.conf"));
-    }
+    env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .map(|path| path.join("Nexa Office").join("settings.conf"))
+}
 
-    #[cfg(target_os = "macos")]
-    {
-        return env::var_os("HOME").map(PathBuf::from).map(|path| {
-            path.join("Library")
-                .join("Application Support")
-                .join("Nexa Office")
-                .join("settings.conf")
-        });
-    }
+#[cfg(target_os = "macos")]
+#[must_use]
+pub fn settings_path() -> Option<PathBuf> {
+    env::var_os("HOME").map(PathBuf::from).map(|path| {
+        path.join("Library")
+            .join("Application Support")
+            .join("Nexa Office")
+            .join("settings.conf")
+    })
+}
 
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        if let Some(path) = env::var_os("XDG_CONFIG_HOME") {
-            return Some(PathBuf::from(path).join("nexa-office").join("settings.conf"));
-        }
+#[cfg(all(unix, not(target_os = "macos")))]
+#[must_use]
+pub fn settings_path() -> Option<PathBuf> {
+    env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .map(|path| path.join("nexa-office").join("settings.conf"))
+        .or_else(|| {
+            env::var_os("HOME")
+                .map(PathBuf::from)
+                .map(|path| path.join(".config").join("nexa-office").join("settings.conf"))
+        })
+}
 
-        return env::var_os("HOME")
-            .map(PathBuf::from)
-            .map(|path| path.join(".config").join("nexa-office").join("settings.conf"));
-    }
-
-    #[allow(unreachable_code)]
+#[cfg(not(any(unix, target_os = "windows")))]
+#[must_use]
+pub fn settings_path() -> Option<PathBuf> {
     None
 }
