@@ -35,6 +35,7 @@ The native Rust workspace and Slint shell are running under Windows, macOS and L
 - [Testing Strategy](docs/TESTING.md)
 - [Code Standards](docs/CODE_STANDARDS.md)
 - [Performance Budgets](docs/PERFORMANCE.md)
+- [Phase 1 Status](docs/PHASE1_STATUS.md)
 - [Phase 1 Performance Baseline](docs/PERFORMANCE_BASELINE.md)
 - [Architecture Decisions](docs/adr/README.md)
 - [Contribution Guide](CONTRIBUTING.md)

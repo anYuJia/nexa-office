@@ -5,11 +5,12 @@ mod settings_store;
 
 use nexa_core::{AppCommand, AppPage, AppSettings, AppState, EditorKind};
 use platform::PlatformInfo;
-use std::{cell::RefCell, path::PathBuf, rc::Rc};
+use std::{cell::RefCell, path::PathBuf, rc::Rc, time::Instant};
 
 slint::include_modules!();
 
 fn main() -> Result<(), slint::PlatformError> {
+    let startup = Instant::now();
     let ui = AppWindow::new()?;
     let settings_path = platform::settings_path();
     let settings = load_settings(settings_path.as_deref());
@@ -32,6 +33,7 @@ fn main() -> Result<(), slint::PlatformError> {
         sync_ui(&state.borrow(), &ui);
     }
 
+    ui.set_shell_init_text(format!("{:.1} ms", startup.elapsed().as_secs_f64() * 1000.0).into());
     ui.run()
 }
 
@@ -178,26 +180,33 @@ fn update_state(
         AppCommand::SetShowStatusBar(_) | AppCommand::SetCompactNavigation(_)
     );
 
-    {
+    let persistence_error = {
         let mut state = state.borrow_mut();
         state.apply(command);
 
         if persist_settings {
-            persist_settings_if_available(settings_path, state.settings());
+            persist_settings_if_available(settings_path, state.settings())
+        } else {
+            None
         }
-    }
+    };
 
     if let Some(ui) = ui.upgrade() {
         sync_ui(&state.borrow(), &ui);
+
+        if let Some(error) = persistence_error {
+            eprintln!("failed to persist Nexa settings: {error}");
+            ui.set_status_text("Setting changed for this session; saving failed".into());
+        }
     }
 }
 
-fn persist_settings_if_available(settings_path: Option<&std::path::Path>, settings: &AppSettings) {
-    let Some(path) = settings_path else {
-        return;
-    };
-
-    let _ = settings_store::save(path, settings);
+fn persist_settings_if_available(
+    settings_path: Option<&std::path::Path>,
+    settings: &AppSettings,
+) -> Option<std::io::Error> {
+    let path = settings_path?;
+    settings_store::save(path, settings).err()
 }
 
 fn sync_ui(state: &AppState, ui: &AppWindow) {

@@ -33,6 +33,14 @@ GitHub-hosted Ubuntu + Xvfb is used to detect large regressions and validate tha
 
 The renderer change reduced the CI smoke PSS by roughly an order of magnitude. These figures are environment-specific and MUST NOT be advertised as end-user hardware measurements.
 
+The shared-runner smoke also enforces deliberately coarse regression ceilings:
+
+- private memory <= 60 MiB;
+- idle CPU <= 2.0% of one logical core;
+- release shell binary <= 25 MiB.
+
+The 2.0% CI CPU ceiling is intentionally wider than the product hard budget because shared runners are noisy. These smoke ceilings catch gross regressions; they do not replace the stricter reference-machine acceptance budgets.
+
 ## Measurement rules
 
 Build:

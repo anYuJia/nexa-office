@@ -171,6 +171,7 @@ export component AppWindow inherits Window {
     in property <string> architecture-text: "";
     in property <string> build-text: "";
     in property <string> renderer-text: "";
+    in property <string> shell-init-text: "";
 
     callback create-docs();
     callback create-sheets();
@@ -361,6 +362,11 @@ export component AppWindow inherits Window {
                     InfoRow {
                         label: "Shell renderer";
                         value: root.renderer-text;
+                    }
+
+                    InfoRow {
+                        label: "Shell init";
+                        value: root.shell-init-text;
                     }
 
                     InfoRow {
