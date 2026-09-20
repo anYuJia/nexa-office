@@ -47,7 +47,7 @@ pub fn compare_packages(left: &Package, right: &Package) -> PackageDiff {
     let changed_parts = left_parts
         .iter()
         .filter(|entry| {
-            let (name, value) = **entry;
+            let (name, value) = *entry;
             right_parts
                 .get(name)
                 .is_some_and(|right_value| right_value != value)
