@@ -122,7 +122,8 @@ mod tests {
     #[test]
     fn resolves_parent_segments_without_leaving_package() {
         let source = PartName::new("/ppt/slides/slide1.xml").unwrap();
-        let target = resolve_internal_target(Some(&source), "../slideLayouts/slideLayout1.xml").unwrap();
+        let target =
+            resolve_internal_target(Some(&source), "../slideLayouts/slideLayout1.xml").unwrap();
 
         assert_eq!(target.as_str(), "/ppt/slideLayouts/slideLayout1.xml");
     }
