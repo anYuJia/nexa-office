@@ -1,63 +1,74 @@
 # Phase 2 Status
 
-Phase 2 establishes the shared OOXML / OPC package foundation used by DOCX, XLSX, and PPTX.
+**Status: Complete**
 
-## Batch 1 — dependency-free OPC invariants
+Phase 2 establishes the shared OOXML / OPC package foundation used by DOCX, XLSX and PPTX.
 
-Implemented:
+## Completed
 
-- dedicated `nexa-ooxml` crate with no UI dependency;
-- canonical OPC `PartName` validation;
-- rejection of path traversal, backslashes, empty segments, fragments, and control characters;
-- relationship target resolution relative to package root or source part;
-- explicit rejection of relationship targets that escape the package root;
-- compact content-type defaults/overrides with override precedence;
-- package resource-budget model for entry count, per-part size, total decompressed size, and compression ratio;
-- unit tests for common Word/Excel/PowerPoint path patterns and hostile inputs;
-- in-memory OPC package graph with opaque unknown-part byte preservation;
-- relationship collections with duplicate-ID rejection;
-- explicit missing-content-type and duplicate-part errors.
+- dedicated UI-independent `nexa-ooxml` crate;
+- canonical OPC Part names and relationship-Part mapping;
+- path traversal, alias and package-root escape rejection;
+- Content Types defaults/overrides;
+- package and Part Relationships;
+- bounded streaming XML metadata parser/writer;
+- pinned `quick-xml 0.42.0`, default features disabled;
+- DOCTYPE, depth, input-size and attribute-count controls;
+- pinned `zip 8.6.0`, default features disabled;
+- only `deflate-flate2-zlib-rs` enabled;
+- lazy ZIP central-directory indexing;
+- Stored/Deflate Part reading on demand;
+- entry, per-Part, aggregate size and compression-ratio limits;
+- overlapping-entry, encryption, symlink and unsupported-compression rejection;
+- owned `Package` / `Part` / `RelationshipSet` graph;
+- Office family/main-Part detection;
+- DOCX/XLSX/PPTX generated fixture coverage;
+- validated repack;
+- unknown opaque Part preservation;
+- package semantic comparison helper;
+- deterministic malformed XML corpus;
+- malformed package/resource-limit tests;
+- cargo-fuzz targets for XML metadata and ZIP/package boundaries;
+- failure-safe package save with temporary file + sync + replacement;
+- Windows/macOS/Linux strict CI;
+- OOXML release performance smoke.
 
-The repository keeps `cargo --locked` intact while parser/package dependencies are introduced through pinned, minimal feature sets.
+## Acceptance evidence
 
-## Next batches
+| Gate | Status |
+| --- | --- |
+| Preserve unrelated opaque Parts across validated repack | ✅ |
+| Content Types reader/writer round-trip | ✅ |
+| Relationships reader/writer round-trip | ✅ |
+| Malformed ZIP/XML fail safely | ✅ |
+| XML fuzz target exists | ✅ |
+| ZIP/package fuzz target exists | ✅ |
+| DOCX package-level round-trip | ✅ |
+| XLSX package-level round-trip | ✅ |
+| PPTX package-level round-trip | ✅ |
+| Package comparison tooling | ✅ |
+| Failure-safe save regression test | ✅ |
+| Windows fmt/check/Clippy/tests | ✅ |
+| macOS fmt/check/Clippy/tests | ✅ |
+| Linux fmt/check/Clippy/tests | ✅ |
+| OOXML performance smoke | ✅ |
+| XML ADR accepted | ✅ |
+| ZIP/OPC ADR accepted | ✅ |
 
-1. streaming XML adapter and parsing limits — implemented for OPC metadata;
-2. ZIP adapter with lazy entry reads and decompression enforcement — implementation in progress;
-3. `[Content_Types].xml` and `.rels` parsers/writers;
-4. OPC package graph and unknown-part preservation;
-5. deterministic package rewrite / round-trip fixture harness;
-6. DOCX, XLSX, and PPTX package-level smoke fixtures;
-7. malformed package corpus and fuzz targets;
-8. performance measurements before accepting ADR 0004 / 0005.
+## Performance snapshot
 
+The recorded 8.4 MiB / 132-entry release fixture measured approximately:
 
-## Batch 2 — streaming OPC metadata XML
+- 272 µs to index the ZIP central directory;
+- 46 µs to identify the Office family/main Part;
+- 4 µs to read the selected 150-byte main Part;
+- 243 ms to perform a validated full repack;
+- 18.8 MiB peak RSS for the entire benchmark process.
 
-Implemented:
+Shared CI now enforces a coarse 64 MiB peak-RSS regression ceiling for this fixture.
 
-- pinned `quick-xml 0.42.0` with default features disabled;
-- event-driven parsing with no generic DOM;
-- input-size, nesting-depth, and attribute-count limits;
-- explicit DOCTYPE rejection;
-- real `[Content_Types].xml` parsing;
-- real package/part `.rels` parsing;
-- entity normalization for predefined XML entities;
-- duplicate relationship-ID rejection;
-- internal target resolution through the package-root safety rules.
+## Boundary for Phase 3
 
+Phase 2 does **not** implement WordprocessingML layout/editing, spreadsheet semantics, or presentation rendering.
 
-## Batch 3 — lazy ZIP package reader
-
-Implementation:
-
-- pinned `zip 8.6.0` with default features disabled;
-- only `deflate-flate2-zlib-rs` enabled for Stored/Deflate OOXML packages;
-- central-directory validation before any document part is exposed;
-- overlapping ZIP entry rejection;
-- encrypted-entry and symlink rejection;
-- unsupported compression-method rejection;
-- canonical OPC path validation and duplicate-part rejection;
-- package entry/size/compression-ratio limits applied from ZIP metadata;
-- per-part bounded decompression on demand;
-- direct lazy access to `[Content_Types].xml` and relationship parts.
+Phase 3 may build Nexa Docs semantics and layout on this package layer. It must not bypass the OPC security, preservation or performance boundaries established here.
