@@ -6,27 +6,39 @@ Phase 2 performance validation focuses on the package foundation rather than edi
 
 The reproducible release-mode fixture contains:
 
-- one minimal DOCX main part;
-- root relationships and content types;
-- 128 small XML parts;
-- one 8 MiB deterministic, poorly-compressible opaque binary part.
+- one minimal DOCX main Part;
+- root Relationships and Content Types;
+- 128 small XML Parts;
+- one 8 MiB deterministic, poorly-compressible opaque binary Part.
 
-The smoke measures:
+The smoke measures ZIP indexing, Office family identification, selective Part reading, validated repack, and peak process RSS.
 
-- ZIP central-directory indexing;
-- Office family identification;
-- selective main-part read;
-- validated full-package repack;
-- process peak RSS.
+## Measured shared-runner result
 
-## Shared-runner gate
+Environment: GitHub-hosted Ubuntu, release build, commit `ce696f36`.
 
-GitHub-hosted Ubuntu is a trend environment, not a reference machine.
+| Metric | Result |
+| --- | ---: |
+| Fixture ZIP size | 8,412,830 bytes |
+| Indexed entries | 132 |
+| Declared uncompressed bytes | 8,395,583 bytes |
+| ZIP central-directory index | 272 µs |
+| Office family identification | 46 µs |
+| Selected 150-byte main-Part read | 4 µs |
+| Validated full repack | 243,259 µs (~243 ms) |
+| Repacked ZIP size | 8,412,830 bytes |
+| Complete benchmark peak RSS | 19,252 KiB (~18.8 MiB) |
 
-The Phase 2 smoke uses a deliberately coarse peak RSS ceiling of **192 MiB** for the entire benchmark process. This includes fixture construction, compression, decompression, repack, allocator state, and ZIP/XML runtime overhead.
+This is shared-runner trend evidence, not an end-user performance claim.
 
-The important architecture invariant is stricter than the numeric smoke ceiling:
+## CI regression gate
 
-> Opening/indexing a package MUST NOT eagerly materialize every compressed part.
+The OOXML smoke now fails above **64 MiB peak RSS** for the complete benchmark process.
 
-Actual measurements are recorded from the workflow artifact before Phase 2 is accepted.
+The process includes fixture construction, compression, decompression, repack, allocator state, and ZIP/XML runtime overhead. The measured sample is substantially below the gate.
+
+The stronger architecture invariant remains:
+
+> Opening/indexing a package MUST NOT eagerly materialize every compressed Part.
+
+Dedicated user-document open/save benchmarks will be added with the Docs, Sheets and Slides semantic engines.
