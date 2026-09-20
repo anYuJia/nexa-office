@@ -6,6 +6,7 @@
 //! eventual ZIP and XML parser crates. I/O adapters are intentionally kept outside
 //! these types so they can be fuzzed and tested without filesystem or UI concerns.
 
+mod atomic_save;
 mod content_types;
 mod limits;
 mod office_package;
@@ -15,6 +16,7 @@ mod relationships;
 mod xml;
 mod zip_package;
 
+pub use atomic_save::{AtomicSaveError, save_package_atomic};
 pub use content_types::{ContentTypeMap, ContentTypeRule};
 pub use limits::{LimitViolation, PackageLimits, PackageUsage};
 pub use office_package::{OfficePackageError, OfficePackageInfo, OfficePackageKind};
