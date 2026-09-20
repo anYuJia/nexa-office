@@ -1,0 +1,81 @@
+name: OOXML Quality Gate
+
+on:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/nexa-ooxml/**"
+      - "fuzz/**"
+      - ".github/workflows/ooxml-quality.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/nexa-ooxml/**"
+      - "fuzz/**"
+      - ".github/workflows/ooxml-quality.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ooxml-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  workspace-quality:
+    name: OOXML workspace quality / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y
+          libfontconfig-dev
+          libx11-xcb-dev
+          libx11-dev
+          libxcb-shape0-dev
+          libxcb-xfixes0-dev
+          libxcursor-dev
+          libxkbcommon-dev
+          libxkbcommon-x11-dev
+          xinput
+
+      - name: Verify pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Verify lockfile
+        run: cargo metadata --locked --format-version 1 --no-deps
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Check workspace
+        run: cargo check --workspace --all-targets --locked
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --all-targets --locked
