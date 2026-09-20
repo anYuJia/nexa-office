@@ -2,17 +2,17 @@
 
 This file records measured Phase 1 shell baselines.
 
-The budgets remain authoritative in [PERFORMANCE.md](PERFORMANCE.md). Numbers are added here only after they are measured from a release build on a documented machine.
+The budgets remain authoritative in [PERFORMANCE.md](PERFORMANCE.md). Reference numbers are added only after they are measured from a release build on a documented machine.
 
 ## Required baseline states
 
 1. Process launch to responsive start screen.
 2. Settled start screen for at least 30 seconds.
-3. Idle CPU over 30 seconds.
+3. Idle CPU over a sustained sample.
 4. Private/owned memory.
 5. Release executable/package size.
 
-## Current status
+## Current reference status
 
 | Platform | Commit | Startup | Idle private/PSS/footprint | Idle CPU | Binary/package | Status |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
@@ -20,7 +20,18 @@ The budgets remain authoritative in [PERFORMANCE.md](PERFORMANCE.md). Numbers ar
 | Windows | — | — | — | — | — | pending reference run |
 | Linux | — | — | — | — | — | pending reference run |
 
-No numbers are intentionally guessed. Phase 1 is not performance-accepted until actual reference-machine results are recorded.
+No reference-machine numbers are guessed. Shared CI measurements below are trend evidence, not substitutes for reference-machine acceptance.
+
+## CI native smoke trend
+
+GitHub-hosted Ubuntu + Xvfb is used to detect large regressions and validate that the release shell launches natively.
+
+| Shell renderer | Commit | Settle | PSS | Private | Idle CPU | Release binary |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| FemtoVG | d9b5dbcf | 8 s | ~136.7 MiB | ~133.7 MiB | not isolated | ~12.4 MiB |
+| Software | 673c75de | 30 s | ~13.0 MiB | ~11.0 MiB | 0.000% / one core | ~12.6 MiB |
+
+The renderer change reduced the CI smoke PSS by roughly an order of magnitude. These figures are environment-specific and MUST NOT be advertised as end-user hardware measurements.
 
 ## Measurement rules
 
@@ -58,4 +69,4 @@ Phase 1 target:
 - warm startup target <= 300 ms;
 - cold p95 <= 1,000 ms.
 
-If the shell itself cannot approach these limits, Phase 2 must not normalize the regression. The GUI feature set/backend must be revisited first.
+The current software-renderer CI smoke is comfortably below the memory hard budget, but Phase 1 still requires dedicated Windows/macOS/Linux reference runs before final performance acceptance.

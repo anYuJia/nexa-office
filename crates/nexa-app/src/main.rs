@@ -1,58 +1,198 @@
 #![deny(unsafe_code)]
 
-use nexa_core::{AppCommand, AppState, EditorKind};
-use std::{cell::RefCell, rc::Rc};
+mod platform;
+mod settings_store;
+
+use nexa_core::{AppCommand, AppPage, AppSettings, AppState, EditorKind};
+use platform::PlatformInfo;
+use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 slint::include_modules!();
 
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
-    let state = Rc::new(RefCell::new(AppState::default()));
+    let settings_path = platform::settings_path();
+    let settings = load_settings(settings_path.as_deref());
+    let state = Rc::new(RefCell::new(AppState::with_settings(settings)));
 
-    {
-        let state = Rc::clone(&state);
-        let ui_weak = ui.as_weak();
-        ui.on_create_docs(move || {
-            update_state(&state, &ui_weak, AppCommand::New(EditorKind::Docs));
-        });
+    configure_static_diagnostics(&ui);
+
+    bind_navigation(&ui, Rc::clone(&state), settings_path.clone());
+    bind_editor_actions(&ui, Rc::clone(&state), settings_path.clone());
+    bind_settings(&ui, Rc::clone(&state), settings_path.clone());
+
+    if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from) {
+        update_state(
+            &state,
+            &ui.as_weak(),
+            settings_path.as_deref(),
+            AppCommand::OpenFile(path),
+        );
+    } else {
+        sync_ui(&state.borrow(), &ui);
     }
 
-    {
-        let state = Rc::clone(&state);
-        let ui_weak = ui.as_weak();
-        ui.on_create_sheets(move || {
-            update_state(&state, &ui_weak, AppCommand::New(EditorKind::Sheets));
-        });
-    }
-
-    {
-        let state = Rc::clone(&state);
-        let ui_weak = ui.as_weak();
-        ui.on_create_slides(move || {
-            update_state(&state, &ui_weak, AppCommand::New(EditorKind::Slides));
-        });
-    }
-
-    {
-        let state = Rc::clone(&state);
-        let ui_weak = ui.as_weak();
-        ui.on_go_home(move || {
-            update_state(&state, &ui_weak, AppCommand::GoHome);
-        });
-    }
-
-    ui.set_status_text(state.borrow().status().into());
     ui.run()
 }
 
-fn update_state(state: &Rc<RefCell<AppState>>, ui: &slint::Weak<AppWindow>, command: AppCommand) {
-    let status = {
+fn load_settings(path: Option<&std::path::Path>) -> AppSettings {
+    path.and_then(|path| settings_store::load(path).ok())
+        .unwrap_or_default()
+}
+
+fn configure_static_diagnostics(ui: &AppWindow) {
+    let info = PlatformInfo::current();
+    ui.set_platform_text(info.os.into());
+    ui.set_architecture_text(info.architecture.into());
+    ui.set_build_text(format!("{} · v{}", info.build_profile, info.version).into());
+    ui.set_renderer_text(info.renderer.into());
+}
+
+fn bind_navigation(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: Option<PathBuf>) {
+    {
+        let state = Rc::clone(&state);
+        let ui_weak = ui.as_weak();
+        let settings_path = settings_path.clone();
+        ui.on_show_home(move || {
+            update_state(
+                &state,
+                &ui_weak,
+                settings_path.as_deref(),
+                AppCommand::Navigate(AppPage::Home),
+            );
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let ui_weak = ui.as_weak();
+        let settings_path = settings_path.clone();
+        ui.on_show_diagnostics(move || {
+            update_state(
+                &state,
+                &ui_weak,
+                settings_path.as_deref(),
+                AppCommand::Navigate(AppPage::Diagnostics),
+            );
+        });
+    }
+
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_show_settings(move || {
+            update_state(
+                &state,
+                &ui_weak,
+                settings_path.as_deref(),
+                AppCommand::Navigate(AppPage::Settings),
+            );
+        });
+    }
+}
+
+fn bind_editor_actions(
+    ui: &AppWindow,
+    state: Rc<RefCell<AppState>>,
+    settings_path: Option<PathBuf>,
+) {
+    for (editor, connect) in [
+        (
+            EditorKind::Docs,
+            AppWindow::on_create_docs as fn(&AppWindow, Box<dyn Fn()>),
+        ),
+        (
+            EditorKind::Sheets,
+            AppWindow::on_create_sheets as fn(&AppWindow, Box<dyn Fn()>),
+        ),
+        (
+            EditorKind::Slides,
+            AppWindow::on_create_slides as fn(&AppWindow, Box<dyn Fn()>),
+        ),
+    ] {
+        let state = Rc::clone(&state);
+        let ui_weak = ui.as_weak();
+        let settings_path = settings_path.clone();
+        connect(
+            ui,
+            Box::new(move || {
+                update_state(
+                    &state,
+                    &ui_weak,
+                    settings_path.as_deref(),
+                    AppCommand::New(editor),
+                );
+            }),
+        );
+    }
+}
+
+fn bind_settings(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: Option<PathBuf>) {
+    {
+        let state = Rc::clone(&state);
+        let ui_weak = ui.as_weak();
+        let settings_path = settings_path.clone();
+        ui.on_toggle_reopen_last(move || {
+            let next = !state.borrow().settings().reopen_last_session();
+            update_state(
+                &state,
+                &ui_weak,
+                settings_path.as_deref(),
+                AppCommand::SetReopenLastSession(next),
+            );
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let ui_weak = ui.as_weak();
+        ui.on_toggle_autosave(move || {
+            let next = !state.borrow().settings().autosave_enabled();
+            update_state(
+                &state,
+                &ui_weak,
+                settings_path.as_deref(),
+                AppCommand::SetAutosaveEnabled(next),
+            );
+        });
+    }
+}
+
+fn update_state(
+    state: &Rc<RefCell<AppState>>,
+    ui: &slint::Weak<AppWindow>,
+    settings_path: Option<&std::path::Path>,
+    command: AppCommand,
+) {
+    let persist_settings = matches!(
+        command,
+        AppCommand::SetReopenLastSession(_) | AppCommand::SetAutosaveEnabled(_)
+    );
+
+    {
         let mut state = state.borrow_mut();
         state.apply(command);
-        state.status().to_owned()
-    };
+
+        if persist_settings {
+            if let Some(path) = settings_path {
+                let _ = settings_store::save(path, state.settings());
+            }
+        }
+    }
 
     if let Some(ui) = ui.upgrade() {
-        ui.set_status_text(status.into());
+        sync_ui(&state.borrow(), &ui);
     }
+}
+
+fn sync_ui(state: &AppState, ui: &AppWindow) {
+    let page = match state.page() {
+        AppPage::Home => 0,
+        AppPage::Diagnostics => 1,
+        AppPage::Settings => 2,
+    };
+
+    ui.set_page(page);
+    ui.set_status_text(state.status().into());
+    ui.set_reopen_last(state.settings().reopen_last_session());
+    ui.set_autosave_enabled(state.settings().autosave_enabled());
 }

@@ -1,13 +1,39 @@
+component NavButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> active;
+    callback activated();
+
+    height: 40px;
+    border-radius: 9px;
+    background: root.active ? #eef2f6 : transparent;
+
+    Text {
+        x: 12px;
+        width: parent.width - 24px;
+        text: root.label;
+        color: root.active ? #101828 : #667085;
+        font-size: 14px;
+        font-weight: root.active ? 600 : 400;
+        vertical-alignment: center;
+    }
+
+    TouchArea {
+        clicked => {
+            root.activated();
+        }
+    }
+}
+
 component ActionCard inherits Rectangle {
     in property <string> title;
     in property <string> subtitle;
     callback activated();
 
-    height: 108px;
+    height: 116px;
     background: #ffffff;
     border-color: #e5e7eb;
     border-width: 1px;
-    border-radius: 14px;
+    border-radius: 12px;
 
     VerticalLayout {
         padding: 18px;
@@ -15,7 +41,7 @@ component ActionCard inherits Rectangle {
 
         Text {
             text: root.title;
-            color: #111827;
+            color: #101828;
             font-size: 18px;
             font-weight: 600;
         }
@@ -34,132 +60,400 @@ component ActionCard inherits Rectangle {
     }
 }
 
+component InfoRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+
+    height: 52px;
+    background: transparent;
+    border-color: #eaecf0;
+    border-width: 0px;
+
+    HorizontalLayout {
+        spacing: 18px;
+
+        Text {
+            width: 180px;
+            text: root.label;
+            color: #667085;
+            font-size: 13px;
+            vertical-alignment: center;
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.value;
+            color: #101828;
+            font-size: 13px;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component SettingRow inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in property <bool> checked;
+    callback toggled();
+
+    height: 72px;
+    background: transparent;
+
+    HorizontalLayout {
+        spacing: 18px;
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 4px;
+
+            Rectangle {
+                vertical-stretch: 1;
+                background: transparent;
+            }
+
+            Text {
+                text: root.title;
+                color: #101828;
+                font-size: 14px;
+                font-weight: 600;
+            }
+
+            Text {
+                text: root.description;
+                color: #667085;
+                font-size: 12px;
+            }
+
+            Rectangle {
+                vertical-stretch: 1;
+                background: transparent;
+            }
+        }
+
+        Rectangle {
+            width: 42px;
+            height: 24px;
+            border-radius: 12px;
+            background: root.checked ? #344054 : #d0d5dd;
+            vertical-stretch: 0;
+
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                x: root.checked ? 21px : 3px;
+                y: 3px;
+                border-radius: 9px;
+                background: #ffffff;
+            }
+
+            TouchArea {
+                clicked => {
+                    root.toggled();
+                }
+            }
+        }
+    }
+}
+
 export component AppWindow inherits Window {
     title: "Nexa Office";
     preferred-width: 1120px;
     preferred-height: 720px;
-    min-width: 760px;
-    min-height: 520px;
+    min-width: 820px;
+    min-height: 560px;
     background: #f7f8fa;
 
+    in-out property <int> page: 0;
     in-out property <string> status-text: "Native shell ready";
+    in-out property <bool> reopen-last: true;
+    in-out property <bool> autosave-enabled: true;
+    in property <string> platform-text: "";
+    in property <string> architecture-text: "";
+    in property <string> build-text: "";
+    in property <string> renderer-text: "";
 
     callback create-docs();
     callback create-sheets();
     callback create-slides();
-    callback go-home();
+    callback show-home();
+    callback show-diagnostics();
+    callback show-settings();
+    callback toggle-reopen-last();
+    callback toggle-autosave();
 
-    VerticalLayout {
-        padding: 30px;
-        spacing: 28px;
+    HorizontalLayout {
+        spacing: 0px;
 
-        HorizontalLayout {
-            height: 48px;
+        Rectangle {
+            width: 208px;
+            background: #ffffff;
+            border-color: #eaecf0;
+            border-width: 1px;
 
-            Text {
-                text: "Nexa";
-                color: #101828;
-                font-size: 26px;
-                font-weight: 700;
-                vertical-alignment: center;
-            }
-
-            Rectangle {
-                horizontal-stretch: 1;
-                background: transparent;
-            }
-
-            Rectangle {
-                width: 76px;
-                height: 36px;
-                border-radius: 10px;
-                background: #ffffff;
-                border-color: #e5e7eb;
-                border-width: 1px;
+            VerticalLayout {
+                padding: 18px;
+                spacing: 8px;
 
                 Text {
-                    text: "Home";
-                    color: #344054;
-                    horizontal-alignment: center;
+                    height: 44px;
+                    text: "Nexa";
+                    color: #101828;
+                    font-size: 24px;
+                    font-weight: 700;
                     vertical-alignment: center;
-                    font-size: 13px;
                 }
 
-                TouchArea {
-                    clicked => {
-                        root.go-home();
+                Rectangle {
+                    height: 12px;
+                    background: transparent;
+                }
+
+                NavButton {
+                    label: "Home";
+                    active: root.page == 0;
+                    activated => {
+                        root.show-home();
                     }
+                }
+
+                NavButton {
+                    label: "Diagnostics";
+                    active: root.page == 1;
+                    activated => {
+                        root.show-diagnostics();
+                    }
+                }
+
+                NavButton {
+                    label: "Settings";
+                    active: root.page == 2;
+                    activated => {
+                        root.show-settings();
+                    }
+                }
+
+                Rectangle {
+                    vertical-stretch: 1;
+                    background: transparent;
+                }
+
+                Text {
+                    height: 32px;
+                    text: "Rust native · no WebView";
+                    color: #98a2b3;
+                    font-size: 11px;
+                    vertical-alignment: center;
                 }
             }
         }
 
         VerticalLayout {
-            spacing: 8px;
+            horizontal-stretch: 1;
+            padding: 30px;
+            spacing: 22px;
 
-            Text {
-                text: "Native office, without a browser engine.";
-                color: #101828;
-                font-size: 30px;
-                font-weight: 700;
-            }
+            if root.page == 0 : Rectangle {
+                vertical-stretch: 1;
+                background: transparent;
 
-            Text {
-                text: "Phase 1 establishes the shell, architecture boundaries, CI, and measurable performance baseline.";
-                color: #667085;
-                font-size: 15px;
-            }
-        }
+                VerticalLayout {
+                    spacing: 24px;
 
-        HorizontalLayout {
-            spacing: 14px;
+                    VerticalLayout {
+                        spacing: 8px;
 
-            ActionCard {
-                horizontal-stretch: 1;
-                title: "Docs";
-                subtitle: "DOCX editor";
-                activated => {
-                    root.create-docs();
+                        Text {
+                            text: "Native office, without a browser engine.";
+                            color: #101828;
+                            font-size: 29px;
+                            font-weight: 700;
+                        }
+
+                        Text {
+                            text: "Fast startup, bounded memory, and office-grade file integrity.";
+                            color: #667085;
+                            font-size: 14px;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 14px;
+
+                        ActionCard {
+                            horizontal-stretch: 1;
+                            title: "Docs";
+                            subtitle: "DOCX documents";
+                            activated => {
+                                root.create-docs();
+                            }
+                        }
+
+                        ActionCard {
+                            horizontal-stretch: 1;
+                            title: "Sheets";
+                            subtitle: "XLSX workbooks";
+                            activated => {
+                                root.create-sheets();
+                            }
+                        }
+
+                        ActionCard {
+                            horizontal-stretch: 1;
+                            title: "Slides";
+                            subtitle: "PPTX presentations";
+                            activated => {
+                                root.create-slides();
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        vertical-stretch: 1;
+                        background: transparent;
+                    }
                 }
             }
 
-            ActionCard {
-                horizontal-stretch: 1;
-                title: "Sheets";
-                subtitle: "XLSX workbook";
-                activated => {
-                    root.create-sheets();
+            if root.page == 1 : Rectangle {
+                vertical-stretch: 1;
+                background: transparent;
+
+                VerticalLayout {
+                    spacing: 18px;
+
+                    VerticalLayout {
+                        spacing: 7px;
+
+                        Text {
+                            text: "Diagnostics";
+                            color: #101828;
+                            font-size: 27px;
+                            font-weight: 700;
+                        }
+
+                        Text {
+                            text: "Runtime facts used to keep the native shell measurable.";
+                            color: #667085;
+                            font-size: 14px;
+                        }
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: #eaecf0;
+                    }
+
+                    InfoRow {
+                        label: "Platform";
+                        value: root.platform-text;
+                    }
+
+                    InfoRow {
+                        label: "Architecture";
+                        value: root.architecture-text;
+                    }
+
+                    InfoRow {
+                        label: "Build";
+                        value: root.build-text;
+                    }
+
+                    InfoRow {
+                        label: "Shell renderer";
+                        value: root.renderer-text;
+                    }
+
+                    InfoRow {
+                        label: "Browser runtime";
+                        value: "None";
+                    }
+
+                    InfoRow {
+                        label: "Start-screen memory gate";
+                        value: "Target ≤ 40 MiB · hard ≤ 60 MiB";
+                    }
+
+                    Rectangle {
+                        vertical-stretch: 1;
+                        background: transparent;
+                    }
                 }
             }
 
-            ActionCard {
-                horizontal-stretch: 1;
-                title: "Slides";
-                subtitle: "PPTX presentation";
-                activated => {
-                    root.create-slides();
+            if root.page == 2 : Rectangle {
+                vertical-stretch: 1;
+                background: transparent;
+
+                VerticalLayout {
+                    spacing: 18px;
+
+                    VerticalLayout {
+                        spacing: 7px;
+
+                        Text {
+                            text: "Settings";
+                            color: #101828;
+                            font-size: 27px;
+                            font-weight: 700;
+                        }
+
+                        Text {
+                            text: "Small defaults, stored locally. No account or cloud required.";
+                            color: #667085;
+                            font-size: 14px;
+                        }
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: #eaecf0;
+                    }
+
+                    SettingRow {
+                        title: "Reopen last session";
+                        description: "Restore the previous local workspace when Nexa starts.";
+                        checked: root.reopen-last;
+                        toggled => {
+                            root.toggle-reopen-last();
+                        }
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: #eaecf0;
+                    }
+
+                    SettingRow {
+                        title: "Autosave";
+                        description: "Keep local recovery state enabled while editing.";
+                        checked: root.autosave-enabled;
+                        toggled => {
+                            root.toggle-autosave();
+                        }
+                    }
+
+                    Rectangle {
+                        vertical-stretch: 1;
+                        background: transparent;
+                    }
                 }
             }
-        }
 
-        Rectangle {
-            vertical-stretch: 1;
-            background: transparent;
-        }
+            Rectangle {
+                height: 42px;
+                background: #ffffff;
+                border-color: #eaecf0;
+                border-width: 1px;
+                border-radius: 9px;
 
-        Rectangle {
-            height: 44px;
-            background: #ffffff;
-            border-color: #e5e7eb;
-            border-width: 1px;
-            border-radius: 10px;
-
-            Text {
-                x: 14px;
-                width: parent.width - 28px;
-                text: root.status-text;
-                color: #475467;
-                vertical-alignment: center;
-                font-size: 13px;
+                Text {
+                    x: 13px;
+                    width: parent.width - 26px;
+                    text: root.status-text;
+                    color: #475467;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
             }
         }
     }
