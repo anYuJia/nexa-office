@@ -16,13 +16,13 @@ The initial production feature set is intentionally narrow:
 
 - std
 - winit backend
-- FemtoVG renderer
+- software renderer
 - accessibility
 - current compatibility feature
 
 Default Slint features are disabled so Nexa does not automatically include additional renderers or system-tray functionality.
 
-The document surface is not permanently bound to FemtoVG. Docs/Sheets/Slides rendering will be evaluated independently and may use Vello/wgpu or another native renderer through a documented boundary.
+The application shell uses Slint's software renderer to minimize baseline graphics/runtime cost. Docs/Sheets/Slides rendering is evaluated independently and may use Vello/wgpu or another native renderer through a documented boundary.
 
 ## Alternatives
 
@@ -56,7 +56,7 @@ Costs/risks:
 
 - Slint becomes a foundational dependency and must be benchmarked;
 - platform-specific behavior still needs native validation;
-- FemtoVG/OpenGL memory and driver behavior must be measured;
+- software-renderer CPU cost and feature limits must be measured;
 - renderer changes require an ADR and before/after benchmark.
 
 ## Evidence
