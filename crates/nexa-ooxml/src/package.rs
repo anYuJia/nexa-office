@@ -66,7 +66,6 @@ impl RelationshipSet {
         self.entries.get(id)
     }
 
-    #[must_use]
     pub fn iter(&self) -> impl Iterator<Item = &Relationship> {
         self.entries.values()
     }
@@ -152,7 +151,6 @@ impl Package {
         self.parts.remove(name)
     }
 
-    #[must_use]
     pub fn parts(&self) -> impl Iterator<Item = &Part> {
         self.parts.values()
     }
