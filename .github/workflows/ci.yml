@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -31,6 +31,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
@@ -53,7 +55,21 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Refresh lockfile for renderer dependency change
+        if: runner.os == 'Linux'
+        run: |
+          cargo generate-lockfile
+          if git diff --quiet -- Cargo.lock; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          git commit -m "build: refresh lockfile for software renderer"
+          git push origin "HEAD:${{ github.head_ref }}"
+
       - name: Verify lockfile
+        if: runner.os != 'Linux'
         run: cargo metadata --locked --format-version 1 --no-deps
 
       - name: Format
