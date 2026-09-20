@@ -18,17 +18,20 @@ jobs:
         with:
           ref: feat/phase-2-ooxml-opc
 
-      - name: Resolve manifest into Cargo.lock
-        run: cargo metadata --format-version 1 --no-deps > /dev/null
-
-      - name: Commit lockfile update
+      - name: Resolve ZIP dependency into Cargo.lock
         shell: bash
         run: |
-          if git diff --quiet -- Cargo.lock; then
-            exit 0
+          set +e
+          cargo check -p nexa-ooxml
+          check_status=$?
+          set -e
+
+          if ! git diff --quiet -- Cargo.lock; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Cargo.lock
+            git commit -m "build: lock minimal ZIP dependency"
+            git push origin "HEAD:feat/phase-2-ooxml-opc"
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Cargo.lock
-          git commit -m "build: lock minimal ZIP dependency"
-          git push origin "HEAD:feat/phase-2-ooxml-opc"
+
+          exit "$check_status"
