@@ -135,6 +135,7 @@ fn bind_editor_actions(
         });
     }
 }
+
 fn bind_settings(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: Option<PathBuf>) {
     {
         let state = Rc::clone(&state);
@@ -182,15 +183,24 @@ fn update_state(
         state.apply(command);
 
         if persist_settings {
-            if let Some(path) = settings_path {
-                let _ = settings_store::save(path, state.settings());
-            }
+            persist_settings_if_available(settings_path, state.settings());
         }
     }
 
     if let Some(ui) = ui.upgrade() {
         sync_ui(&state.borrow(), &ui);
     }
+}
+
+fn persist_settings_if_available(
+    settings_path: Option<&std::path::Path>,
+    settings: &AppSettings,
+) {
+    let Some(path) = settings_path else {
+        return;
+    };
+
+    let _ = settings_store::save(path, settings);
 }
 
 fn sync_ui(state: &AppState, ui: &AppWindow) {
