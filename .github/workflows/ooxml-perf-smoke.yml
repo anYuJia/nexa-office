@@ -1,0 +1,66 @@
+name: OOXML Performance Smoke
+
+on:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/nexa-ooxml/**"
+      - ".github/workflows/ooxml-perf-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ooxml-perf-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux-ooxml-smoke:
+    name: Linux OOXML package smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ooxml-release-perf
+
+      - name: Build release benchmark fixture
+        run: cargo build --release --locked -p nexa-ooxml --example phase2_perf
+
+      - name: Run OOXML package benchmark
+        shell: bash
+        run: |
+          mkdir -p perf-results
+          /usr/bin/time -v target/release/examples/phase2_perf             > perf-results/ooxml-phase2.txt             2> perf-results/ooxml-time.txt
+          cat perf-results/ooxml-phase2.txt
+          cat perf-results/ooxml-time.txt
+
+      - name: Enforce coarse peak-memory regression ceiling
+        shell: bash
+        run: |
+          rss_kb="$(awk -F: '/Maximum resident set size/ { gsub(/^[ 	]+|[ 	]+$/, "", $2); print $2 }' perf-results/ooxml-time.txt)"
+          max_rss_kb=196608
+          echo "peak_rss_kb=$rss_kb" | tee -a perf-results/ooxml-phase2.txt
+          echo "ci_peak_rss_limit_kb=$max_rss_kb" | tee -a perf-results/ooxml-phase2.txt
+          if [[ -z "$rss_kb" ]] || (( rss_kb > max_rss_kb )); then
+            echo "OOXML Phase 2 peak RSS exceeds 192 MiB smoke limit" >&2
+            exit 1
+          fi
+
+      - name: Upload performance artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ooxml-phase2-perf
+          path: perf-results/
+          if-no-files-found: error
