@@ -15,7 +15,7 @@ mod xml;
 mod zip_package;
 
 pub use content_types::{ContentTypeMap, ContentTypeRule};
-pub use limits::{PackageLimits, PackageUsage};
+pub use limits::{LimitViolation, PackageLimits, PackageUsage};
 pub use package::{Package, PackageError, Part, RelationshipSet};
 pub use part_name::{PartName, PartNameError};
 pub use relationships::{
