@@ -141,13 +141,13 @@ fn bind_settings(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: Op
         let state = Rc::clone(&state);
         let ui_weak = ui.as_weak();
         let settings_path = settings_path.clone();
-        ui.on_toggle_reopen_last(move || {
-            let next = !state.borrow().settings().reopen_last_session();
+        ui.on_toggle_status_bar(move || {
+            let next = !state.borrow().settings().show_status_bar();
             update_state(
                 &state,
                 &ui_weak,
                 settings_path.as_deref(),
-                AppCommand::SetReopenLastSession(next),
+                AppCommand::SetShowStatusBar(next),
             );
         });
     }
@@ -155,13 +155,13 @@ fn bind_settings(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: Op
     {
         let state = Rc::clone(&state);
         let ui_weak = ui.as_weak();
-        ui.on_toggle_autosave(move || {
-            let next = !state.borrow().settings().autosave_enabled();
+        ui.on_toggle_compact_navigation(move || {
+            let next = !state.borrow().settings().compact_navigation();
             update_state(
                 &state,
                 &ui_weak,
                 settings_path.as_deref(),
-                AppCommand::SetAutosaveEnabled(next),
+                AppCommand::SetCompactNavigation(next),
             );
         });
     }
@@ -175,7 +175,7 @@ fn update_state(
 ) {
     let persist_settings = matches!(
         &command,
-        AppCommand::SetReopenLastSession(_) | AppCommand::SetAutosaveEnabled(_)
+        AppCommand::SetShowStatusBar(_) | AppCommand::SetCompactNavigation(_)
     );
 
     {
@@ -209,6 +209,6 @@ fn sync_ui(state: &AppState, ui: &AppWindow) {
 
     ui.set_page(page);
     ui.set_status_text(state.status().into());
-    ui.set_reopen_last(state.settings().reopen_last_session());
-    ui.set_autosave_enabled(state.settings().autosave_enabled());
+    ui.set_show_status_bar(state.settings().show_status_bar());
+    ui.set_compact_navigation(state.settings().compact_navigation());
 }

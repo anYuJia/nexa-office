@@ -55,14 +55,14 @@ mod tests {
         let path = unique_test_path("missing");
         let settings = load(&path).expect("missing settings should not be an error");
 
-        assert!(settings.reopen_last_session());
-        assert!(settings.autosave_enabled());
+        assert!(settings.show_status_bar());
+        assert!(settings.compact_navigation());
     }
 
     #[test]
     fn saved_settings_can_be_loaded_again() {
         let path = unique_test_path("round-trip");
-        let settings = AppSettings::decode("reopen_last_session=false\nautosave_enabled=false\n");
+        let settings = AppSettings::decode("show_status_bar=false\ncompact_navigation=false\n");
 
         save(&path, &settings).expect("settings should save");
         let loaded = load(&path).expect("settings should load");

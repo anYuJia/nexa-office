@@ -29,7 +29,7 @@ GitHub-hosted Ubuntu + Xvfb is used to detect large regressions and validate tha
 | Shell renderer | Commit | Settle | PSS | Private | Idle CPU | Release binary |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | FemtoVG | d9b5dbcf | 8 s | ~136.7 MiB | ~133.7 MiB | not isolated | ~12.4 MiB |
-| Software | 673c75de | 30 s | ~13.0 MiB | ~11.0 MiB | 0.000% / one core | ~12.6 MiB |
+| Software | 673c75de | 30 s | ~13.0 MiB | ~11.0 MiB | 0.000% / one core | ~12.6 MiB |\n| Software + Home/Diagnostics/Settings | 44604b15 | 30 s | ~13.0 MiB | ~11.1 MiB | 0.000% / one core | ~12.75 MiB |
 
 The renderer change reduced the CI smoke PSS by roughly an order of magnitude. These figures are environment-specific and MUST NOT be advertised as end-user hardware measurements.
 

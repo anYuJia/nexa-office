@@ -165,8 +165,8 @@ export component AppWindow inherits Window {
 
     in-out property <int> page: 0;
     in-out property <string> status-text: "Native shell ready";
-    in-out property <bool> reopen-last: true;
-    in-out property <bool> autosave-enabled: true;
+    in-out property <bool> show-status-bar: true;
+    in-out property <bool> compact-navigation: false;
     in property <string> platform-text: "";
     in property <string> architecture-text: "";
     in property <string> build-text: "";
@@ -178,14 +178,14 @@ export component AppWindow inherits Window {
     callback show-home();
     callback show-diagnostics();
     callback show-settings();
-    callback toggle-reopen-last();
-    callback toggle-autosave();
+    callback toggle-status-bar();
+    callback toggle-compact-navigation();
 
     HorizontalLayout {
         spacing: 0px;
 
         Rectangle {
-            width: 208px;
+            width: root.compact-navigation ? 168px : 208px;
             background: #ffffff;
             border-color: #eaecf0;
             border-width: 1px;
@@ -398,7 +398,7 @@ export component AppWindow inherits Window {
                         }
 
                         Text {
-                            text: "Small defaults, stored locally. No account or cloud required.";
+                            text: "Small local preferences. No account or cloud required.";
                             color: #667085;
                             font-size: 14px;
                         }
@@ -410,11 +410,11 @@ export component AppWindow inherits Window {
                     }
 
                     SettingRow {
-                        title: "Reopen last session";
-                        description: "Restore the previous local workspace when Nexa starts.";
-                        checked: root.reopen-last;
+                        title: "Show status bar";
+                        description: "Display lightweight command feedback at the bottom of the window.";
+                        checked: root.show-status-bar;
                         toggled => {
-                            root.toggle-reopen-last();
+                            root.toggle-status-bar();
                         }
                     }
 
@@ -424,11 +424,11 @@ export component AppWindow inherits Window {
                     }
 
                     SettingRow {
-                        title: "Autosave";
-                        description: "Keep local recovery state enabled while editing.";
-                        checked: root.autosave-enabled;
+                        title: "Compact navigation";
+                        description: "Use a narrower sidebar to leave more horizontal room for documents.";
+                        checked: root.compact-navigation;
                         toggled => {
-                            root.toggle-autosave();
+                            root.toggle-compact-navigation();
                         }
                     }
 
@@ -439,7 +439,7 @@ export component AppWindow inherits Window {
                 }
             }
 
-            Rectangle {
+            if root.show-status-bar : Rectangle {
                 height: 42px;
                 background: #ffffff;
                 border-color: #eaecf0;

@@ -37,35 +37,35 @@ impl EditorKind {
 /// replace it later without leaking persistence concerns into the UI layer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppSettings {
-    reopen_last_session: bool,
-    autosave_enabled: bool,
+    show_status_bar: bool,
+    compact_navigation: bool,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
-            reopen_last_session: true,
-            autosave_enabled: true,
+            show_status_bar: true,
+            compact_navigation: true,
         }
     }
 }
 
 impl AppSettings {
     #[must_use]
-    pub const fn reopen_last_session(&self) -> bool {
-        self.reopen_last_session
+    pub const fn show_status_bar(&self) -> bool {
+        self.show_status_bar
     }
 
     #[must_use]
-    pub const fn autosave_enabled(&self) -> bool {
-        self.autosave_enabled
+    pub const fn compact_navigation(&self) -> bool {
+        self.compact_navigation
     }
 
     #[must_use]
     pub fn encode(&self) -> String {
         format!(
-            "reopen_last_session={}\nautosave_enabled={}\n",
-            self.reopen_last_session, self.autosave_enabled
+            "show_status_bar={}\ncompact_navigation={}\n",
+            self.show_status_bar, self.compact_navigation
         )
     }
 
@@ -85,8 +85,8 @@ impl AppSettings {
             };
 
             match (key.trim(), parsed) {
-                ("reopen_last_session", Some(value)) => settings.reopen_last_session = value,
-                ("autosave_enabled", Some(value)) => settings.autosave_enabled = value,
+                ("show_status_bar", Some(value)) => settings.show_status_bar = value,
+                ("compact_navigation", Some(value)) => settings.compact_navigation = value,
                 _ => {}
             }
         }
@@ -104,8 +104,8 @@ pub enum AppCommand {
     Navigate(AppPage),
     New(EditorKind),
     OpenFile(PathBuf),
-    SetReopenLastSession(bool),
-    SetAutosaveEnabled(bool),
+    SetShowStatusBar(bool),
+    SetCompactNavigation(bool),
 }
 
 /// UI-independent application state used by the Phase 1 shell.
@@ -161,21 +161,21 @@ impl AppState {
                     None => "Open pipeline reserved for selected file".to_owned(),
                 };
             }
-            AppCommand::SetReopenLastSession(value) => {
-                self.settings.reopen_last_session = value;
+            AppCommand::SetShowStatusBar(value) => {
+                self.settings.show_status_bar = value;
                 self.status = if value {
-                    "Reopen last session enabled"
+                    "Status bar shown"
                 } else {
-                    "Reopen last session disabled"
+                    "Status bar hidden"
                 }
                 .to_owned();
             }
-            AppCommand::SetAutosaveEnabled(value) => {
-                self.settings.autosave_enabled = value;
+            AppCommand::SetCompactNavigation(value) => {
+                self.settings.compact_navigation = value;
                 self.status = if value {
-                    "Autosave enabled"
+                    "Compact navigation enabled"
                 } else {
-                    "Autosave disabled"
+                    "Compact navigation disabled"
                 }
                 .to_owned();
             }
@@ -284,12 +284,12 @@ mod tests {
 
     #[test]
     fn settings_round_trip_unknown_keys_safely() {
-        let source = "reopen_last_session=false\nfuture_key=42\nautosave_enabled=true\n";
+        let source = "show_status_bar=false\nfuture_key=42\ncompact_navigation=true\n";
 
         let settings = AppSettings::decode(source);
 
-        assert!(!settings.reopen_last_session());
-        assert!(settings.autosave_enabled());
+        assert!(!settings.show_status_bar());
+        assert!(settings.compact_navigation());
         assert_eq!(AppSettings::decode(&settings.encode()), settings);
     }
 
@@ -297,9 +297,9 @@ mod tests {
     fn settings_commands_update_only_the_requested_value() {
         let mut state = AppState::default();
 
-        state.apply(AppCommand::SetAutosaveEnabled(false));
+        state.apply(AppCommand::SetCompactNavigation(false));
 
-        assert!(!state.settings().autosave_enabled());
-        assert!(state.settings().reopen_last_session());
+        assert!(!state.settings().compact_navigation());
+        assert!(state.settings().show_status_bar());
     }
 }
