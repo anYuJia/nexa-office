@@ -1,7 +1,7 @@
 use crate::{
     ContentTypeMap, ContentTypeRule, PackageError, PartName, PartNameError, Relationship,
     RelationshipId, RelationshipSet, RelationshipTarget, RelationshipTargetError,
-    resolve_internal_target,
+    relationship_target_reference, resolve_internal_target,
 };
 use quick_xml::{
     XmlVersion,
@@ -89,6 +89,65 @@ impl From<RelationshipTargetError> for XmlParseError {
     fn from(value: RelationshipTargetError) -> Self {
         Self::InvalidRelationshipTarget(value)
     }
+}
+
+#[must_use]
+pub fn write_content_types(content_types: &ContentTypeMap) -> Vec<u8> {
+    let mut output = String::from(
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">"#,
+    );
+
+    for (extension, content_type) in content_types.default_rules() {
+        output.push_str(r#"<Default Extension=""#);
+        push_escaped_attribute(&mut output, extension);
+        output.push_str(r#"" ContentType=""#);
+        push_escaped_attribute(&mut output, content_type);
+        output.push_str(r#""/>"#);
+    }
+
+    for (part_name, content_type) in content_types.override_rules() {
+        output.push_str(r#"<Override PartName=""#);
+        push_escaped_attribute(&mut output, part_name.as_str());
+        output.push_str(r#"" ContentType=""#);
+        push_escaped_attribute(&mut output, content_type);
+        output.push_str(r#""/>"#);
+    }
+
+    output.push_str("</Types>");
+    output.into_bytes()
+}
+
+#[must_use]
+pub fn write_relationships(
+    source: Option<&PartName>,
+    relationships: &RelationshipSet,
+) -> Vec<u8> {
+    let mut output = String::from(
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">"#,
+    );
+
+    for relationship in relationships.iter() {
+        output.push_str(r#"<Relationship Id=""#);
+        push_escaped_attribute(&mut output, relationship.id.as_str());
+        output.push_str(r#"" Type=""#);
+        push_escaped_attribute(&mut output, &relationship.relationship_type);
+        output.push_str(r#"" Target=""#);
+
+        match &relationship.target {
+            RelationshipTarget::Internal(target) => {
+                let reference = relationship_target_reference(source, target);
+                push_escaped_attribute(&mut output, &reference);
+                output.push_str(r#""/>"#);
+            }
+            RelationshipTarget::External(target) => {
+                push_escaped_attribute(&mut output, target);
+                output.push_str(r#"" TargetMode="External"/>"#);
+            }
+        }
+    }
+
+    output.push_str("</Relationships>");
+    output.into_bytes()
 }
 
 pub fn parse_content_types(input: &[u8]) -> Result<ContentTypeMap, XmlParseError> {
@@ -332,6 +391,19 @@ fn optional_attribute<'a>(attributes: &'a [(String, String)], name: &str) -> Opt
         .map(|(_, value)| value.as_str())
 }
 
+fn push_escaped_attribute(output: &mut String, value: &str) {
+    for character in value.chars() {
+        match character {
+            '&' => output.push_str("&amp;"),
+            '<' => output.push_str("&lt;"),
+            '>' => output.push_str("&gt;"),
+            '"' => output.push_str("&quot;"),
+            '\'' => output.push_str("&apos;"),
+            value => output.push(value),
+        }
+    }
+}
+
 fn ensure_input_limit(input: &[u8], limits: XmlLimits) -> Result<(), XmlParseError> {
     if input.len() > limits.max_input_bytes {
         return Err(XmlParseError::InputTooLarge);
@@ -363,6 +435,44 @@ mod tests {
   <Relationship Id="rId1" Type="styles" Target="styles.xml"/>
   <Relationship Id="rId2" Type="hyperlink" Target="https://example.invalid/a?x=1&amp;y=2" TargetMode="External"/>
 </Relationships>"#;
+
+    #[test]
+    fn content_types_round_trip_through_writer() {
+        let parsed = parse_content_types(CONTENT_TYPES).unwrap();
+        let serialized = write_content_types(&parsed);
+        let reparsed = parse_content_types(&serialized).unwrap();
+
+        assert_eq!(reparsed, parsed);
+    }
+
+    #[test]
+    fn relationships_round_trip_through_writer() {
+        let source = PartName::new("/word/document.xml").unwrap();
+        let parsed = parse_relationships(Some(&source), RELATIONSHIPS).unwrap();
+        let serialized = write_relationships(Some(&source), &parsed);
+        let reparsed = parse_relationships(Some(&source), &serialized).unwrap();
+
+        assert_eq!(reparsed, parsed);
+    }
+
+    #[test]
+    fn writer_escapes_external_relationship_attributes() {
+        let mut relationships = RelationshipSet::default();
+        relationships
+            .insert(Relationship {
+                id: RelationshipId::new("rId1"),
+                relationship_type: "https://example.invalid/type?x=1&y=2".into(),
+                target: RelationshipTarget::External(
+                    "https://example.invalid/a?x=1&y=\"quoted\"".into(),
+                ),
+            })
+            .unwrap();
+
+        let serialized = write_relationships(None, &relationships);
+        let reparsed = parse_relationships(None, &serialized).unwrap();
+
+        assert_eq!(reparsed, relationships);
+    }
 
     #[test]
     fn parses_content_type_defaults_and_overrides() {

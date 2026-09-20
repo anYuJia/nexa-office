@@ -53,6 +53,18 @@ impl ContentTypeMap {
             .map(String::as_str)
     }
 
+    pub fn default_rules(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.defaults
+            .iter()
+            .map(|(extension, content_type)| (extension.as_str(), content_type.as_str()))
+    }
+
+    pub fn override_rules(&self) -> impl Iterator<Item = (&PartName, &str)> {
+        self.overrides
+            .iter()
+            .map(|(part_name, content_type)| (part_name, content_type.as_str()))
+    }
+
     #[must_use]
     pub fn len(&self) -> usize {
         self.defaults.len() + self.overrides.len()

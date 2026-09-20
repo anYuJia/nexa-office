@@ -178,6 +178,12 @@ impl Package {
         self.part_relationships.get(source)
     }
 
+    pub fn part_relationships(
+        &self,
+    ) -> impl Iterator<Item = (&PartName, &RelationshipSet)> {
+        self.part_relationships.iter()
+    }
+
     #[must_use]
     pub fn part_count(&self) -> usize {
         self.parts.len()

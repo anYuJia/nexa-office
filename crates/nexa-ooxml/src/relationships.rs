@@ -107,6 +107,38 @@ pub fn source_part_from_relationship_part(
         .map_err(RelationshipTargetError::InvalidPartName)
 }
 
+/// Serialize a resolved internal target back to a compact relationship target reference.
+#[must_use]
+pub fn relationship_target_reference(source: Option<&PartName>, target: &PartName) -> String {
+    let base_segments: Vec<&str> = source
+        .map(PartName::parent_path)
+        .unwrap_or("/")
+        .trim_matches('/')
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .collect();
+    let target_segments: Vec<&str> = target
+        .as_str()
+        .trim_start_matches('/')
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .collect();
+
+    let common = base_segments
+        .iter()
+        .zip(&target_segments)
+        .take_while(|(left, right)| left == right)
+        .count();
+
+    let mut output = String::new();
+    for _ in common..base_segments.len() {
+        output.push_str("../");
+    }
+    output.push_str(&target_segments[common..].join("/"));
+
+    output
+}
+
 /// Resolve an internal OPC relationship target relative to its source part.
 ///
 /// Package-level relationships pass `None` as the source.
@@ -179,6 +211,21 @@ mod tests {
         assert_eq!(
             source_part_from_relationship_part(&part),
             Err(RelationshipTargetError::InvalidRelationshipPartName)
+        );
+    }
+
+    #[test]
+    fn serializes_internal_target_relative_to_source() {
+        let source = PartName::new("/ppt/slides/slide1.xml").unwrap();
+        let target = PartName::new("/ppt/slideLayouts/slideLayout1.xml").unwrap();
+
+        assert_eq!(
+            relationship_target_reference(Some(&source), &target),
+            "../slideLayouts/slideLayout1.xml"
+        );
+        assert_eq!(
+            relationship_target_reference(None, &target),
+            "ppt/slideLayouts/slideLayout1.xml"
         );
     }
 

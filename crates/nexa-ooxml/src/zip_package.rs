@@ -1,15 +1,16 @@
 use crate::{
-    ContentTypeMap, LimitViolation, PackageLimits, PackageUsage, PartName, PartNameError,
-    RelationshipSet, XmlParseError, parse_content_types, parse_relationships,
-    relationship_part_name,
+    ContentTypeMap, LimitViolation, Package, PackageError, PackageLimits, PackageUsage, PartName,
+    PartNameError, RelationshipSet, RelationshipTargetError, XmlParseError, parse_content_types,
+    parse_relationships, relationship_part_name, source_part_from_relationship_part,
+    write_content_types, write_relationships,
 };
 use std::{
     collections::BTreeMap,
     error::Error,
     fmt,
-    io::{Read, Seek},
+    io::{Read, Seek, Write},
 };
-use zip::{CompressionMethod, ZipArchive};
+use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PackageCompression {
@@ -70,6 +71,9 @@ pub enum ZipPackageError {
         actual: u64,
     },
     Xml(XmlParseError),
+    Package(PackageError),
+    RelationshipPath(RelationshipTargetError),
+    Write(String),
 }
 
 impl fmt::Display for ZipPackageError {
@@ -99,6 +103,9 @@ impl fmt::Display for ZipPackageError {
                 "OPC ZIP part size mismatch for {part}: expected {expected}, read {actual}"
             ),
             Self::Xml(error) => write!(f, "OPC metadata XML error: {error}"),
+            Self::Package(error) => write!(f, "OPC package error: {error}"),
+            Self::RelationshipPath(error) => write!(f, "OPC relationship path error: {error}"),
+            Self::Write(message) => write!(f, "ZIP write error: {message}"),
         }
     }
 }
@@ -120,6 +127,18 @@ impl From<LimitViolation> for ZipPackageError {
 impl From<XmlParseError> for ZipPackageError {
     fn from(value: XmlParseError) -> Self {
         Self::Xml(value)
+    }
+}
+
+impl From<PackageError> for ZipPackageError {
+    fn from(value: PackageError) -> Self {
+        Self::Package(value)
+    }
+}
+
+impl From<RelationshipTargetError> for ZipPackageError {
+    fn from(value: RelationshipTargetError) -> Self {
+        Self::RelationshipPath(value)
     }
 }
 
@@ -284,13 +303,145 @@ impl<R: Read + Seek> LazyZipPackage<R> {
         let bytes = self.read_part(&relationship_part)?;
         parse_relationships(source, &bytes).map_err(Into::into)
     }
+
+    pub fn load_owned_package(&mut self) -> Result<Package, ZipPackageError> {
+        let content_types = self.read_content_types()?;
+        let mut package = Package::new(content_types);
+        let part_names: Vec<PartName> = self.entries.keys().cloned().collect();
+
+        for part_name in part_names {
+            if part_name.as_str() == "/[Content_Types].xml" {
+                continue;
+            }
+
+            if is_relationship_part(&part_name) {
+                let source = source_part_from_relationship_part(&part_name)?;
+                let relationships = self.read_relationships(source.as_ref())?;
+
+                match source {
+                    Some(source) => {
+                        *package.relationships_mut(source) = relationships;
+                    }
+                    None => {
+                        *package.package_relationships_mut() = relationships;
+                    }
+                }
+                continue;
+            }
+
+            let bytes = self.read_part(&part_name)?;
+            package.insert_part(part_name, bytes)?;
+        }
+
+        Ok(package)
+    }
+
+    pub fn repack_validated<W: Write + Seek>(
+        &mut self,
+        writer: W,
+    ) -> Result<W, ZipPackageError> {
+        let entries: Vec<ZipEntryMetadata> = self.entries.values().cloned().collect();
+        let mut output = ZipWriter::new(writer);
+
+        for metadata in entries {
+            let bytes = self.read_part(&metadata.part_name)?;
+            let options = zip_options(metadata.compression);
+            output
+                .start_file(metadata.part_name.zip_entry_name(), options)
+                .map_err(|error| ZipPackageError::Write(error.to_string()))?;
+            output
+                .write_all(&bytes)
+                .map_err(|error| ZipPackageError::Write(error.to_string()))?;
+        }
+
+        output
+            .finish()
+            .map_err(|error| ZipPackageError::Write(error.to_string()))
+    }
+}
+
+pub fn write_owned_package<W: Write + Seek>(
+    package: &Package,
+    writer: W,
+) -> Result<W, ZipPackageError> {
+    let mut output = ZipWriter::new(writer);
+    let options = zip_options(PackageCompression::Deflated);
+
+    write_zip_entry(
+        &mut output,
+        "[Content_Types].xml",
+        &write_content_types(package.content_types()),
+        options,
+    )?;
+
+    if !package.package_relationships().is_empty() {
+        write_zip_entry(
+            &mut output,
+            "_rels/.rels",
+            &write_relationships(None, package.package_relationships()),
+            options,
+        )?;
+    }
+
+    for part in package.parts() {
+        write_zip_entry(
+            &mut output,
+            part.name().zip_entry_name(),
+            part.bytes(),
+            options,
+        )?;
+    }
+
+    for (source, relationships) in package.part_relationships() {
+        if relationships.is_empty() {
+            continue;
+        }
+
+        let relationship_part = relationship_part_name(Some(source))?;
+        write_zip_entry(
+            &mut output,
+            relationship_part.zip_entry_name(),
+            &write_relationships(Some(source), relationships),
+            options,
+        )?;
+    }
+
+    output
+        .finish()
+        .map_err(|error| ZipPackageError::Write(error.to_string()))
+}
+
+fn is_relationship_part(part_name: &PartName) -> bool {
+    part_name.as_str() == "/_rels/.rels"
+        || (part_name.as_str().contains("/_rels/") && part_name.as_str().ends_with(".rels"))
+}
+
+fn zip_options(compression: PackageCompression) -> SimpleFileOptions {
+    SimpleFileOptions::default().compression_method(match compression {
+        PackageCompression::Stored => CompressionMethod::Stored,
+        PackageCompression::Deflated => CompressionMethod::Deflated,
+    })
+}
+
+fn write_zip_entry<W: Write + Seek>(
+    writer: &mut ZipWriter<W>,
+    name: &str,
+    bytes: &[u8],
+    options: SimpleFileOptions,
+) -> Result<(), ZipPackageError> {
+    writer
+        .start_file(name, options)
+        .map_err(|error| ZipPackageError::Write(error.to_string()))?;
+    writer
+        .write_all(bytes)
+        .map_err(|error| ZipPackageError::Write(error.to_string()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::{Cursor, Write};
-    use zip::{ZipWriter, write::SimpleFileOptions};
+    use zip::ZipWriter;
 
     const CONTENT_TYPES: &[u8] = br#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
       <Default Extension="xml" ContentType="application/xml"/>
@@ -377,16 +528,60 @@ mod tests {
     }
 
     #[test]
-    fn rejects_duplicate_part_names() {
+    fn validated_repack_preserves_unknown_part_bytes() {
+        let unknown = [0, 255, 17, 42, 0, 9];
         let bytes = build_zip(&[
-            ("word/document.xml", b"first", CompressionMethod::Stored),
-            ("word/document.xml", b"second", CompressionMethod::Stored),
+            ("[Content_Types].xml", CONTENT_TYPES, CompressionMethod::Deflated),
+            ("_rels/.rels", ROOT_RELS, CompressionMethod::Deflated),
+            ("word/document.xml", b"<w:document/>", CompressionMethod::Deflated),
+            ("customXml/item1.bin", &unknown, CompressionMethod::Stored),
         ]);
+        let mut package = LazyZipPackage::open(Cursor::new(bytes)).unwrap();
 
-        assert!(matches!(
-            LazyZipPackage::open(Cursor::new(bytes)),
-            Err(ZipPackageError::DuplicatePart(_))
-        ));
+        let repacked = package
+            .repack_validated(Cursor::new(Vec::new()))
+            .unwrap()
+            .into_inner();
+        let mut reopened = LazyZipPackage::open(Cursor::new(repacked)).unwrap();
+
+        assert_eq!(
+            reopened
+                .read_part(&PartName::new("/customXml/item1.bin").unwrap())
+                .unwrap(),
+            unknown
+        );
+    }
+
+    #[test]
+    fn owned_package_round_trip_preserves_parts_and_relationships() {
+        let bytes = build_zip(&[
+            ("[Content_Types].xml", CONTENT_TYPES, CompressionMethod::Deflated),
+            ("_rels/.rels", ROOT_RELS, CompressionMethod::Deflated),
+            ("word/document.xml", b"<w:document/>", CompressionMethod::Deflated),
+        ]);
+        let mut lazy = LazyZipPackage::open(Cursor::new(bytes)).unwrap();
+        let owned = lazy.load_owned_package().unwrap();
+
+        let rewritten = write_owned_package(&owned, Cursor::new(Vec::new()))
+            .unwrap()
+            .into_inner();
+        let mut reopened = LazyZipPackage::open(Cursor::new(rewritten)).unwrap();
+
+        assert_eq!(
+            reopened
+                .read_part(&PartName::new("/word/document.xml").unwrap())
+                .unwrap(),
+            b"<w:document/>"
+        );
+        assert_eq!(
+            reopened
+                .read_relationships(None)
+                .unwrap()
+                .get(&crate::RelationshipId::new("rId1"))
+                .unwrap()
+                .target,
+            crate::RelationshipTarget::Internal(PartName::new("/word/document.xml").unwrap())
+        );
     }
 
     #[test]
