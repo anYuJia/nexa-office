@@ -64,7 +64,7 @@ jobs:
             echo "runner=${RUNNER_OS}/${RUNNER_ARCH}"
             echo "kernel=$(uname -a)"
             echo "release_binary_bytes=$(stat -c%s target/release/nexa-office)"
-            SETTLE_SECONDS=8 xvfb-run -a bash scripts/perf/linux_idle_memory.sh target/release/nexa-office
+            SETTLE_SECONDS=30 CPU_SAMPLE_SECONDS=10 xvfb-run -a bash scripts/perf/linux_idle_memory.sh target/release/nexa-office
           } | tee perf-results/linux-ci-smoke.txt
 
       - name: Upload smoke result
