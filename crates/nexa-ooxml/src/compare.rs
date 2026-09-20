@@ -46,12 +46,13 @@ pub fn compare_packages(left: &Package, right: &Package) -> PackageDiff {
         .collect();
     let changed_parts = left_parts
         .iter()
-        .filter_map(|(name, value)| {
+        .filter(|entry| {
+            let (name, value) = **entry;
             right_parts
                 .get(name)
                 .is_some_and(|right_value| right_value != value)
-                .then(|| name.clone())
         })
+        .map(|(name, _)| name.clone())
         .collect();
 
     let left_relationships = relationship_map(left);
