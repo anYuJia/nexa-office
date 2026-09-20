@@ -2,6 +2,7 @@
 members = [
     "crates/nexa-app",
     "crates/nexa-core",
+    "crates/nexa-ooxml",
 ]
 resolver = "3"
 
@@ -22,6 +23,8 @@ slint = { version = "=1.18.0", default-features = false, features = [
     "compat-1-18",
 ] }
 slint-build = "=1.18.0"
+quick-xml = { version = "=0.42.0", default-features = false }
+zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [profile.release]
 opt-level = "s"

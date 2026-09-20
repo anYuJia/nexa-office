@@ -21,9 +21,9 @@ The exact dependency set is not frozen. New foundational dependencies require an
 
 ## Status
 
-Nexa Office is currently in **Phase 1 — Native Shell and Measurement Baseline**.
+Nexa Office has completed **Phase 2 — OOXML / OPC Foundation** and is entering **Phase 3 — Nexa Docs MVP**.
 
-The native Rust workspace and Slint shell are running under Windows, macOS and Linux CI. Phase 1 is deliberately performance-gated: the shell renderer and runtime are being measured and reduced before OOXML implementation begins.
+The native Rust/Slint shell remains performance-gated. The shared OOXML package layer now provides bounded ZIP/XML parsing, DOCX/XLSX/PPTX package detection, package-level round-trip preservation, unknown opaque Part preservation, fuzz boundaries, and failure-safe saving.
 
 ## Engineering documents
 
@@ -37,6 +37,8 @@ The native Rust workspace and Slint shell are running under Windows, macOS and L
 - [Performance Budgets](docs/PERFORMANCE.md)
 - [Phase 1 Status](docs/PHASE1_STATUS.md)
 - [Phase 1 Performance Baseline](docs/PERFORMANCE_BASELINE.md)
+- [Phase 2 Status](docs/PHASE2_STATUS.md)
+- [Phase 2 OOXML Performance](docs/PHASE2_PERFORMANCE.md)
 - [Architecture Decisions](docs/adr/README.md)
 - [Contribution Guide](CONTRIBUTING.md)
 

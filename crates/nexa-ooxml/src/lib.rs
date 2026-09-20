@@ -1,0 +1,38 @@
+#![forbid(unsafe_code)]
+
+//! Shared OOXML / OPC primitives.
+//!
+//! Phase 2 starts with the package invariants that must remain true regardless of the
+//! eventual ZIP and XML parser crates. I/O adapters are intentionally kept outside
+//! these types so they can be fuzzed and tested without filesystem or UI concerns.
+
+mod atomic_save;
+mod compare;
+mod content_types;
+mod limits;
+mod office_package;
+mod package;
+mod part_name;
+mod relationships;
+mod xml;
+mod zip_package;
+
+pub use atomic_save::{AtomicSaveError, save_package_atomic};
+pub use compare::{PackageDiff, compare_packages};
+pub use content_types::{ContentTypeMap, ContentTypeRule};
+pub use limits::{LimitViolation, PackageLimits, PackageUsage};
+pub use office_package::{OfficePackageError, OfficePackageInfo, OfficePackageKind};
+pub use package::{Package, PackageError, Part, RelationshipSet};
+pub use part_name::{PartName, PartNameError};
+pub use relationships::{
+    Relationship, RelationshipId, RelationshipTarget, RelationshipTargetError, TargetMode,
+    relationship_part_name, relationship_target_reference, resolve_internal_target,
+    source_part_from_relationship_part,
+};
+pub use xml::{
+    XmlLimits, XmlParseError, parse_content_types, parse_content_types_with_limits,
+    parse_relationships, parse_relationships_with_limits, write_content_types, write_relationships,
+};
+pub use zip_package::{
+    LazyZipPackage, PackageCompression, ZipEntryMetadata, ZipPackageError, write_owned_package,
+};

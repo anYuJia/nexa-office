@@ -1,0 +1,29 @@
+[package]
+name = "nexa-ooxml-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+nexa-ooxml = { path = "../crates/nexa-ooxml" }
+
+[[bin]]
+name = "opc_xml"
+path = "fuzz_targets/opc_xml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "zip_package"
+path = "fuzz_targets/zip_package.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]
