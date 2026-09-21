@@ -31,6 +31,33 @@ impl EditorKind {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppLanguage {
+    System,
+    English,
+    SimplifiedChinese,
+}
+
+impl AppLanguage {
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::English => "en",
+            Self::SimplifiedChinese => "zh-CN",
+        }
+    }
+
+    #[must_use]
+    pub fn from_code(value: &str) -> Self {
+        match value.trim() {
+            "en" | "en-US" | "en-GB" => Self::English,
+            "zh" | "zh-CN" | "zh-Hans" => Self::SimplifiedChinese,
+            _ => Self::System,
+        }
+    }
+}
+
 /// Small settings set used while Phase 1 establishes the native shell.
 ///
 /// The format intentionally remains simple and dependency-free. Phase 1 settings
@@ -39,6 +66,7 @@ impl EditorKind {
 pub struct AppSettings {
     show_status_bar: bool,
     compact_navigation: bool,
+    language: AppLanguage,
 }
 
 impl Default for AppSettings {
@@ -46,6 +74,7 @@ impl Default for AppSettings {
         Self {
             show_status_bar: true,
             compact_navigation: false,
+            language: AppLanguage::System,
         }
     }
 }
@@ -62,10 +91,17 @@ impl AppSettings {
     }
 
     #[must_use]
+    pub const fn language(&self) -> AppLanguage {
+        self.language
+    }
+
+    #[must_use]
     pub fn encode(&self) -> String {
         format!(
-            "show_status_bar={}\ncompact_navigation={}\n",
-            self.show_status_bar, self.compact_navigation
+            "show_status_bar={}\ncompact_navigation={}\nlanguage={}\n",
+            self.show_status_bar,
+            self.compact_navigation,
+            self.language.code()
         )
     }
 
@@ -78,15 +114,18 @@ impl AppSettings {
                 continue;
             };
 
-            let parsed = match value.trim() {
-                "true" => Some(true),
-                "false" => Some(false),
-                _ => None,
-            };
-
-            match (key.trim(), parsed) {
-                ("show_status_bar", Some(value)) => settings.show_status_bar = value,
-                ("compact_navigation", Some(value)) => settings.compact_navigation = value,
+            match key.trim() {
+                "show_status_bar" => {
+                    if let Ok(value) = value.trim().parse::<bool>() {
+                        settings.show_status_bar = value;
+                    }
+                }
+                "compact_navigation" => {
+                    if let Ok(value) = value.trim().parse::<bool>() {
+                        settings.compact_navigation = value;
+                    }
+                }
+                "language" => settings.language = AppLanguage::from_code(value),
                 _ => {}
             }
         }
@@ -106,6 +145,7 @@ pub enum AppCommand {
     OpenFile(PathBuf),
     SetShowStatusBar(bool),
     SetCompactNavigation(bool),
+    SetLanguage(AppLanguage),
 }
 
 /// UI-independent application state used by the Phase 1 shell.
@@ -182,6 +222,10 @@ impl AppState {
                     "Compact navigation disabled"
                 }
                 .to_owned();
+            }
+            AppCommand::SetLanguage(value) => {
+                self.settings.language = value;
+                self.status = "Language preference updated".to_owned();
             }
         }
     }
@@ -307,13 +351,28 @@ mod tests {
 
     #[test]
     fn settings_round_trip_unknown_keys_safely() {
-        let source = "show_status_bar=false\nfuture_key=42\ncompact_navigation=true\n";
+        let source =
+            "show_status_bar=false\nfuture_key=42\ncompact_navigation=true\nlanguage=zh-CN\n";
 
         let settings = AppSettings::decode(source);
 
         assert!(!settings.show_status_bar());
         assert!(settings.compact_navigation());
+        assert_eq!(settings.language(), AppLanguage::SimplifiedChinese);
         assert_eq!(AppSettings::decode(&settings.encode()), settings);
+    }
+
+    #[test]
+    fn language_setting_round_trips_and_defaults_safely() {
+        assert_eq!(AppSettings::default().language(), AppLanguage::System);
+        assert_eq!(
+            AppSettings::decode("language=en\n").language(),
+            AppLanguage::English
+        );
+        assert_eq!(
+            AppSettings::decode("language=unknown\n").language(),
+            AppLanguage::System
+        );
     }
 
     #[test]
