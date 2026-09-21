@@ -20,7 +20,8 @@ Nexa Office 的目标不是把网页编辑器套进桌面壳，而是从底层�
 - Phase 2：OOXML / OPC 基础层
 - Phase 3：Nexa Docs MVP
 - Phase 4：Nexa Sheets MVP
-- Phase 5：Nexa Slides MVP（最终验证中）
+- Phase 5：Nexa Slides MVP
+- Phase 6：兼容性与互操作强化（进行中）
 - 原生 UI/UX 现代化与中英文适配
 
 Nexa Docs 当前已经具备真实 DOCX 工作流：
@@ -105,7 +106,7 @@ cargo fmt --all -- --check
 
 ## 后续路线
 
-Phase 5 完成后进入 **Phase 6 — 兼容性与互操作强化**，随后进行平台原生集成与 Alpha/Beta/1.0 收口。
+当前正在推进 **Phase 6 — 兼容性与互操作强化**，重点是统一重写风险审计、真实 Office corpus、Unicode/CJK/RTL 保真以及高风险 OOXML 的安全阻断；随后进行平台原生集成与 Alpha/Beta/1.0 收口。
 
 详细计划见 [Roadmap](docs/ROADMAP.md)。
 
