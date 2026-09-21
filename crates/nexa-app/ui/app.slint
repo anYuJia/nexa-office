@@ -419,9 +419,8 @@ export component AppWindow inherits Window {
     in property <SheetRow> sheets-header;
     in property <[SheetRow]> sheets-rows;
 
-    private property <bool> nav-compact:
-        root.compact-navigation || root.width < 1100px;
-    private property <bool> dense-docs: root.width < 1040px;
+    private property <bool> nav-compact: root.compact-navigation;
+    private property <bool> dense-docs: root.compact-navigation;
 
     callback create-docs();
     callback create-sheets();
@@ -692,9 +691,9 @@ export component AppWindow inherits Window {
                 background: #f8f9fb;
 
                 VerticalLayout {
-                    padding-left: root.width < 1100px ? 30px : 56px;
-                    padding-right: root.width < 1100px ? 30px : 56px;
-                    padding-top: root.width < 1100px ? 40px : 48px;
+                    padding-left: root.nav-compact ? 30px : 56px;
+                    padding-right: root.nav-compact ? 30px : 56px;
+                    padding-top: root.nav-compact ? 40px : 48px;
                     padding-bottom: 32px;
                     spacing: 26px;
 
