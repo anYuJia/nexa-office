@@ -1,5 +1,7 @@
 # Nexa Office
 
+[简体中文](README.zh-CN.md) · English
+
 > A native, lightweight office suite built with Rust.
 
 Nexa Office is an experimental desktop productivity suite focused on three non-negotiable goals:
@@ -23,7 +25,7 @@ The exact dependency set is not frozen. New foundational dependencies require an
 
 Nexa Office has completed **Phase 3 — Nexa Docs MVP** and is ready to enter **Phase 4 — Nexa Sheets MVP**.
 
-The native Rust/Slint application now includes a real Docs workspace backed by a native Rust DOCX semantic/editing engine: open/save, atomic Save As, paragraph editing, formatting, search/replace, undo/redo, pagination, compatibility blocking, and performance/corpus gates. Phase 3 is a safe MVP rather than a claim of complete Microsoft Word fidelity; unsupported destructive rewrites remain blocked.
+The native Rust/Slint application now includes a real Docs workspace backed by a native Rust DOCX semantic/editing engine: open/save, atomic Save As, paragraph editing, formatting, search/replace, undo/redo, pagination, compatibility blocking, and performance/corpus gates. The product shell is bilingual (System / 简体中文 / English), responsive down to an 840 px desktop window, and keeps accessibility metadata on custom controls. Phase 3 is a safe MVP rather than a claim of complete Microsoft Word fidelity; unsupported destructive rewrites remain blocked.
 
 ## Engineering documents
 
@@ -42,6 +44,7 @@ The native Rust/Slint application now includes a real Docs workspace backed by a
 - [Phase 3 Status](docs/PHASE3_STATUS.md)
 - [Phase 3 Docs Performance](docs/PHASE3_PERFORMANCE.md)
 - [Phase 3 DOCX Corpus](docs/PHASE3_CORPUS.md)
+- [UI / UX and localization](docs/UI_UX_I18N.md)
 - [Architecture Decisions](docs/adr/README.md)
 - [Contribution Guide](CONTRIBUTING.md)
 
