@@ -23,9 +23,9 @@ The exact dependency set is not frozen. New foundational dependencies require an
 
 ## Status
 
-Nexa Office has completed **Phase 3 — Nexa Docs MVP** and is ready to enter **Phase 4 — Nexa Sheets MVP**.
+Nexa Office has completed **Phase 4 — Nexa Sheets MVP**. Docs and Sheets now both have native Rust semantic engines and native Slint workspaces.
 
-The native Rust/Slint application now includes a real Docs workspace backed by a native Rust DOCX semantic/editing engine: open/save, atomic Save As, paragraph editing, formatting, search/replace, undo/redo, pagination, compatibility blocking, and performance/corpus gates. The product shell is bilingual (System / 简体中文 / English), responsive down to an 840 px desktop window, and keeps accessibility metadata on custom controls. Phase 3 is a safe MVP rather than a claim of complete Microsoft Word fidelity; unsupported destructive rewrites remain blocked.
+The native Rust/Slint application includes real Docs and Sheets workspaces. Docs provides safe DOCX editing, formatting, search/replace, undo/redo and pagination. Sheets provides a sparse XLSX-sized workbook model, a bounded virtualized grid, formulas and deterministic recalculation, formatting, merged cells, row/column sizing, sort/filter, freeze panes, multi-sheet editing and XLSX open/save. The shell remains bilingual (System / 简体中文 / English), accessibility-aware and browser-runtime-free. Unsupported destructive rewrites remain blocked instead of silently losing Office content.
 
 ## Engineering documents
 
@@ -44,6 +44,8 @@ The native Rust/Slint application now includes a real Docs workspace backed by a
 - [Phase 3 Status](docs/PHASE3_STATUS.md)
 - [Phase 3 Docs Performance](docs/PHASE3_PERFORMANCE.md)
 - [Phase 3 DOCX Corpus](docs/PHASE3_CORPUS.md)
+- [Phase 4 Status](docs/PHASE4_STATUS.md)
+- [Phase 4 Sheets Performance](docs/PHASE4_PERFORMANCE.md)
 - [UI / UX and localization](docs/UI_UX_I18N.md)
 - [Architecture Decisions](docs/adr/README.md)
 - [Contribution Guide](CONTRIBUTING.md)
