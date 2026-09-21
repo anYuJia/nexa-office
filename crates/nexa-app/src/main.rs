@@ -560,7 +560,14 @@ fn update_state(
 
         if let Some(error) = persistence_error {
             eprintln!("failed to persist Nexa settings: {error}");
-            ui.set_status_text("Setting changed for this session; saving failed".into());
+            ui.set_status_text(
+                if ui.get_is_chinese() {
+                    "设置已在本次会话生效，但保存到本机失败"
+                } else {
+                    "Setting changed for this session; saving failed"
+                }
+                .into(),
+            );
         }
     }
 }
@@ -602,24 +609,22 @@ fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
     let is_chinese = ui.get_is_chinese();
     let Some(session) = session else {
         ui.set_docs_title("Docs".into());
-        ui.set_docs_current_path(
-            if is_chinese {
-                "未打开文档".into()
-            } else {
-                "No document open".into()
-            },
-        );
+        ui.set_docs_current_path(if is_chinese {
+            "未打开文档".into()
+        } else {
+            "No document open".into()
+        });
         ui.set_docs_paragraph_text("".into());
-        ui.set_docs_paragraph_meta(
-            if is_chinese {
-                "第 0 段 / 共 0 段".into()
-            } else {
-                "Paragraph 0 of 0".into()
-            },
-        );
-        ui.set_docs_page_meta(
-            if is_chinese { "0 页".into() } else { "0 pages".into() },
-        );
+        ui.set_docs_paragraph_meta(if is_chinese {
+            "第 0 段 / 共 0 段".into()
+        } else {
+            "Paragraph 0 of 0".into()
+        });
+        ui.set_docs_page_meta(if is_chinese {
+            "0 页".into()
+        } else {
+            "0 pages".into()
+        });
         ui.set_docs_dirty_meta("".into());
         ui.set_docs_compatibility_text("".into());
         ui.set_docs_bold(false);
@@ -631,7 +636,11 @@ fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
 
     ui.set_docs_title(session.title().into());
     ui.set_docs_current_path(if session.path_text().is_empty() {
-        "Not saved yet".into()
+        if is_chinese {
+            "尚未保存".into()
+        } else {
+            "Not saved yet".into()
+        }
     } else {
         session.path_text().into()
     });
@@ -662,7 +671,11 @@ fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
     );
     ui.set_docs_dirty_meta(
         if session.is_dirty() {
-            if is_chinese { "有未保存更改" } else { "Unsaved changes" }
+            if is_chinese {
+                "有未保存更改"
+            } else {
+                "Unsaved changes"
+            }
         } else if is_chinese {
             "已保存"
         } else {
@@ -671,7 +684,17 @@ fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
         .into(),
     );
     ui.set_docs_compatibility_text(if session.can_save() {
-        "Compatibility check: writable".into()
+        if is_chinese {
+            "兼容性检查：可安全写入".into()
+        } else {
+            "Compatibility check: writable".into()
+        }
+    } else if is_chinese {
+        format!(
+            "已阻止保存 · 检测到 {} 个暂不支持的结构",
+            session.compatibility_issue_count()
+        )
+        .into()
     } else {
         format!(
             "Save blocked · {} unsupported construct(s)",
@@ -700,14 +723,12 @@ fn resolved_is_chinese(language: AppLanguage) -> bool {
 }
 
 fn system_prefers_chinese() -> bool {
-    ["LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"]
+    ["LC_ALL", "LC_MESSAGES", "LC_CTYPE", "LANGUAGE", "LANG"]
         .into_iter()
         .filter_map(|key| std::env::var(key).ok())
         .any(|value| {
             let normalized = value.to_ascii_lowercase();
-            normalized.starts_with("zh")
-                || normalized.contains(":zh")
-                || normalized.contains("_zh")
+            normalized.starts_with("zh") || normalized.contains(":zh") || normalized.contains("_zh")
         })
 }
 
@@ -771,5 +792,27 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
             format!("文档操作失败：{}", &other["Docs command failed: ".len()..])
         }
         _ => status.to_owned(),
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chinese_status_localizes_static_and_dynamic_docs_feedback() {
+        assert_eq!(localize_status("Native shell ready", true), "原生工作区已就绪");
+        assert_eq!(localize_status("Editing paragraph 3", true), "正在编辑第 3 段");
+        assert_eq!(localize_status("Replaced 4 match(es)", true), "已替换 4 处");
+        assert_eq!(localize_status("7 match(es)", true), "找到 7 处匹配");
+    }
+
+    #[test]
+    fn english_status_remains_stable() {
+        assert_eq!(
+            localize_status("Opened quarterly.docx", false),
+            "Opened quarterly.docx"
+        );
     }
 }
