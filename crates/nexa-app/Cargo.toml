@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 nexa-core = { path = "../nexa-core" }
+nexa-docs = { path = "../nexa-docs" }
 slint.workspace = true
 
 [build-dependencies]

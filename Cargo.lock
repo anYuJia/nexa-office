@@ -2561,6 +2561,7 @@ name = "nexa-app"
 version = "0.1.0"
 dependencies = [
  "nexa-core",
+ "nexa-docs",
  "slint",
  "slint-build",
 ]
