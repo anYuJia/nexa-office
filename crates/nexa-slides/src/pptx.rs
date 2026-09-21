@@ -209,8 +209,7 @@ impl PptxPresentation {
             return Err(PptxError::SaveBlocked(self.compatibility_issues.len()));
         }
         self.ensure_slide_parts()?;
-        let active_relationships =
-            &self.slide_relationship_ids[..self.presentation.slides().len()];
+        let active_relationships = &self.slide_relationship_ids[..self.presentation.slides().len()];
         self.package.replace_part(
             &self.presentation_part,
             write_presentation_xml(&self.presentation, active_relationships),
