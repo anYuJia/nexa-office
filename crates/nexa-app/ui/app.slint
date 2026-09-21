@@ -97,7 +97,7 @@ component LaunchRow inherits Rectangle {
     in property <bool> primary: false;
     callback activated();
 
-    height: 82px;
+    height: 72px;
     background: transparent;
     border-color: #eaecf0;
     border-width: 0px;
@@ -108,7 +108,7 @@ component LaunchRow inherits Rectangle {
 
     Rectangle {
         x: 0px;
-        y: 13px;
+        y: 9px;
         width: 54px;
         height: 54px;
         border-radius: 14px;
@@ -126,9 +126,9 @@ component LaunchRow inherits Rectangle {
 
     VerticalLayout {
         x: 72px;
-        y: 15px;
+        y: 10px;
         width: parent.width - 190px;
-        height: 52px;
+        height: 50px;
         spacing: 4px;
 
         Text {
@@ -324,23 +324,45 @@ export struct SlideElementRow {
 export struct RecentFileRow {
     label: string,
     path: string,
+    kind: string,
 }
 
 component RecentFileItem inherits Rectangle {
     in property <string> label;
     in property <string> path;
+    in property <string> kind;
     callback activated();
 
-    height: 46px;
+    height: 50px;
     background: transparent;
     accessible-role: button;
     accessible-label: root.label;
     accessible-description: root.path;
     accessible-action-default => { root.activated(); }
 
-    VerticalLayout {
+    Rectangle {
         x: 0px;
-        width: parent.width - 24px;
+        y: 11px;
+        width: 38px;
+        height: 26px;
+        border-radius: 7px;
+        background: root.kind == "DOCX" ? #eef4ff
+            : (root.kind == "XLSX" ? #ecfdf3 : #fff4ed);
+
+        Text {
+            text: root.kind;
+            color: root.kind == "DOCX" ? #175cd3
+                : (root.kind == "XLSX" ? #027a48 : #c4320a);
+            font-size: 8px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    VerticalLayout {
+        x: 50px;
+        width: parent.width - 76px;
         spacing: 2px;
 
         Text {
@@ -499,7 +521,9 @@ export component AppWindow inherits Window {
     in property <[SlideElementRow]> slides-elements;
 
     private property <bool> nav-compact: root.compact-navigation;
-    private property <bool> dense-docs: root.compact-navigation;
+    private property <bool> dense-workspace: root.compact-navigation || root.width < 1080px;
+    private property <bool> dense-docs: root.dense-workspace;
+    private property <bool> compact-home: root.height < 700px;
 
     callback create-docs();
     callback create-sheets();
@@ -837,27 +861,41 @@ export component AppWindow inherits Window {
                 VerticalLayout {
                     padding-left: root.nav-compact ? 30px : 56px;
                     padding-right: root.nav-compact ? 30px : 56px;
-                    padding-top: root.nav-compact ? 40px : 48px;
-                    padding-bottom: 32px;
-                    spacing: 26px;
+                    padding-top: root.compact-home ? 24px : (root.nav-compact ? 40px : 48px);
+                    padding-bottom: root.compact-home ? 20px : 32px;
+                    spacing: root.compact-home ? 14px : 22px;
 
-                    VerticalLayout {
-                        height: 100px;
-                        spacing: 8px;
+                    HorizontalLayout {
+                        height: root.compact-home ? 64px : 84px;
+                        spacing: 18px;
 
-                        Text {
-                            text: root.is-chinese ? "今天想处理什么？" : "What are you working on?";
-                            color: #101828;
-                            font-size: 30px;
-                            font-weight: 720;
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: root.compact-home ? 4px : 8px;
+
+                            Text {
+                                text: root.is-chinese ? "今天想处理什么？" : "What are you working on?";
+                                color: #101828;
+                                font-size: root.compact-home ? 24px : 30px;
+                                font-weight: 720;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: root.is-chinese
+                                    ? "原生 Rust 办公套件，不依赖浏览器内核。"
+                                    : "A native Rust office suite without a browser engine.";
+                                color: #667085;
+                                font-size: 13px;
+                                vertical-alignment: center;
+                            }
                         }
 
-                        Text {
-                            text: root.is-chinese
-                                ? "原生 Rust 办公套件，不依赖浏览器内核。"
-                                : "A native Rust office suite without a browser engine.";
-                            color: #667085;
-                            font-size: 13px;
+                        ToolButton {
+                            width: root.is-chinese ? 118px : 108px;
+                            label: root.is-chinese ? "打开文件" : "Open file";
+                            accessible-name: root.is-chinese ? "打开 Office 文件" : "Open Office file";
+                            activated => { root.native-open(); }
                         }
                     }
 
@@ -870,7 +908,7 @@ export component AppWindow inherits Window {
                         spacing: 0px;
 
                         Text {
-                            height: 36px;
+                            height: 30px;
                             text: root.is-chinese ? "新建" : "CREATE";
                             color: #98a2b3;
                             font-size: 10px;
@@ -885,7 +923,7 @@ export component AppWindow inherits Window {
                                 ? "DOCX · 段落、格式、搜索、撤销与安全保存"
                                 : "DOCX · paragraphs, formatting, search, undo and safe save";
                             meta: root.is-chinese ? "可用" : "Ready";
-                            primary: true;
+                            primary: false;
                             activated => { root.create-docs(); }
                         }
 
@@ -910,7 +948,7 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    VerticalLayout {
+                    if !root.compact-home : VerticalLayout {
                         spacing: 0px;
 
                         Text {
@@ -925,6 +963,7 @@ export component AppWindow inherits Window {
                         for recent in root.recent-files : RecentFileItem {
                             label: recent.label;
                             path: recent.path;
+                            kind: recent.kind;
                             activated => { root.open-recent(recent.path); }
                         }
                     }
@@ -1698,8 +1737,18 @@ export component AppWindow inherits Window {
 
                             ToolButton { label: "A↑"; accessible-name: root.is-chinese ? "按当前列升序" : "Sort ascending"; quiet: true; activated => { root.sheets-sort(true); } }
                             ToolButton { label: "A↓"; accessible-name: root.is-chinese ? "按当前列降序" : "Sort descending"; quiet: true; activated => { root.sheets-sort(false); } }
-                            ToolButton { label: root.is-chinese ? "冻结行" : "Freeze row"; quiet: true; activated => { root.sheets-freeze-row(); } }
-                            ToolButton { label: root.is-chinese ? "冻结列" : "Freeze col"; quiet: true; activated => { root.sheets-freeze-column(); } }
+                            ToolButton {
+                                label: root.dense-workspace ? "R" : (root.is-chinese ? "冻结行" : "Freeze row");
+                                accessible-name: root.is-chinese ? "冻结行" : "Freeze row";
+                                quiet: true;
+                                activated => { root.sheets-freeze-row(); }
+                            }
+                            ToolButton {
+                                label: root.dense-workspace ? "C" : (root.is-chinese ? "冻结列" : "Freeze col");
+                                accessible-name: root.is-chinese ? "冻结列" : "Freeze column";
+                                quiet: true;
+                                activated => { root.sheets-freeze-column(); }
+                            }
                         }
                     }
 
@@ -1850,15 +1899,42 @@ export component AppWindow inherits Window {
 
                             Rectangle { width: 1px; background: #e4e7ec; }
 
-                            ToolButton { label: root.is-chinese ? "+ 页面" : "+ Slide"; quiet: true; activated => { root.slides-add-slide(); } }
-                            ToolButton { label: root.is-chinese ? "复制" : "Duplicate"; quiet: true; activated => { root.slides-duplicate(); } }
-                            ToolButton { label: root.is-chinese ? "删除页" : "Delete slide"; quiet: true; activated => { root.slides-delete-slide(); } }
+                            ToolButton {
+                                label: root.dense-workspace ? "+" : (root.is-chinese ? "+ 页面" : "+ Slide");
+                                accessible-name: root.is-chinese ? "新增幻灯片" : "Add slide";
+                                quiet: true;
+                                activated => { root.slides-add-slide(); }
+                            }
+                            ToolButton {
+                                label: root.dense-workspace ? "D" : (root.is-chinese ? "复制" : "Duplicate");
+                                accessible-name: root.is-chinese ? "复制幻灯片" : "Duplicate slide";
+                                quiet: true;
+                                activated => { root.slides-duplicate(); }
+                            }
+                            ToolButton {
+                                label: root.dense-workspace ? "×" : (root.is-chinese ? "删除页" : "Delete slide");
+                                accessible-name: root.is-chinese ? "删除幻灯片" : "Delete slide";
+                                quiet: true;
+                                activated => { root.slides-delete-slide(); }
+                            }
 
                             Rectangle { width: 1px; background: #e4e7ec; }
 
-                            ToolButton { label: root.is-chinese ? "文本" : "Text"; activated => { root.slides-add-text(); } }
-                            ToolButton { label: root.is-chinese ? "形状" : "Shape"; activated => { root.slides-add-shape(); } }
-                            ToolButton { label: root.is-chinese ? "表格" : "Table"; activated => { root.slides-add-table(); } }
+                            ToolButton {
+                                label: root.dense-workspace ? "T" : (root.is-chinese ? "文本" : "Text");
+                                accessible-name: root.is-chinese ? "添加文本框" : "Add text box";
+                                activated => { root.slides-add-text(); }
+                            }
+                            ToolButton {
+                                label: root.dense-workspace ? "S" : (root.is-chinese ? "形状" : "Shape");
+                                accessible-name: root.is-chinese ? "添加形状" : "Add shape";
+                                activated => { root.slides-add-shape(); }
+                            }
+                            ToolButton {
+                                label: root.dense-workspace ? "Tbl" : (root.is-chinese ? "表格" : "Table");
+                                accessible-name: root.is-chinese ? "添加表格" : "Add table";
+                                activated => { root.slides-add-table(); }
+                            }
 
                             Rectangle { horizontal-stretch: 1; background: transparent; }
 
