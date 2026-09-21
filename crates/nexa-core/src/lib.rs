@@ -150,15 +150,19 @@ impl AppState {
             AppCommand::New(editor) => {
                 self.page = AppPage::Home;
                 self.active_editor = Some(editor);
-                self.status = format!("{} engine is not enabled in Phase 1", editor.label());
+                self.status = match editor {
+                    EditorKind::Docs => "New Docs document".to_owned(),
+                    EditorKind::Sheets => "Sheets editor is planned for Phase 4".to_owned(),
+                    EditorKind::Slides => "Slides editor is planned for Phase 5".to_owned(),
+                };
             }
             AppCommand::OpenFile(path) => {
                 self.page = AppPage::Home;
-                self.active_editor = None;
+                self.active_editor = editor_for_path(&path);
                 self.remember_file(path.clone());
                 self.status = match file_name(&path) {
-                    Some(name) => format!("Open pipeline reserved for: {name}"),
-                    None => "Open pipeline reserved for selected file".to_owned(),
+                    Some(name) => format!("Opened {name}"),
+                    None => "Opened selected file".to_owned(),
                 };
             }
             AppCommand::SetShowStatusBar(value) => {
@@ -212,6 +216,24 @@ impl AppState {
     pub fn status(&self) -> &str {
         &self.status
     }
+
+    pub fn set_status(&mut self, status: impl Into<String>) {
+        self.status = status.into();
+    }
+}
+
+fn editor_for_path(path: &Path) -> Option<EditorKind> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("docx") => Some(EditorKind::Docs),
+        Some("xlsx") => Some(EditorKind::Sheets),
+        Some("pptx") => Some(EditorKind::Slides),
+        _ => None,
+    }
 }
 
 fn file_name(path: &Path) -> Option<&str> {
@@ -229,7 +251,7 @@ mod tests {
         state.apply(AppCommand::New(EditorKind::Docs));
 
         assert_eq!(state.active_editor(), Some(EditorKind::Docs));
-        assert_eq!(state.status(), "Docs engine is not enabled in Phase 1");
+        assert_eq!(state.status(), "New Docs document");
     }
 
     #[test]
@@ -252,7 +274,8 @@ mod tests {
             "/private/example/quarterly.xlsx",
         )));
 
-        assert_eq!(state.status(), "Open pipeline reserved for: quarterly.xlsx");
+        assert_eq!(state.status(), "Opened quarterly.xlsx");
+        assert_eq!(state.active_editor(), Some(EditorKind::Sheets));
         assert!(!state.status().contains("/private/example"));
     }
 
