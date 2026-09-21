@@ -735,25 +735,34 @@ fn bind_slides_actions(ui: &AppWindow, state: SharedState, slides: SharedSlides)
             ui.$callback(move || {
                 apply_slides_operation(&state, &slides, &ui_weak, |session| {
                     session.$method()?;
-                    Ok($status(session))
+                    Ok(($status)(session))
                 });
             });
         }};
     }
 
-    simple_slides_action!(on_slides_previous, previous_slide, |session: &SlidesSession| {
-        format!("Slide {}", session.current_slide_index() + 1)
-    });
+    simple_slides_action!(
+        on_slides_previous,
+        previous_slide,
+        |session: &SlidesSession| { format!("Slide {}", session.current_slide_index() + 1) }
+    );
     simple_slides_action!(on_slides_next, next_slide, |session: &SlidesSession| {
         format!("Slide {}", session.current_slide_index() + 1)
     });
-    simple_slides_action!(on_slides_duplicate, duplicate_slide, |session: &SlidesSession| {
-        format!("Duplicated slide {}", session.current_slide_index() + 1)
-    });
-    simple_slides_action!(on_slides_delete_slide, delete_slide, |session: &SlidesSession| {
-        format!("Slide {}", session.current_slide_index() + 1)
-    });
-    simple_slides_action!(on_slides_add_text, add_text_box, |_| "Text box added".into());
+    simple_slides_action!(
+        on_slides_duplicate,
+        duplicate_slide,
+        |session: &SlidesSession| {
+            format!("Duplicated slide {}", session.current_slide_index() + 1)
+        }
+    );
+    simple_slides_action!(
+        on_slides_delete_slide,
+        delete_slide,
+        |session: &SlidesSession| { format!("Slide {}", session.current_slide_index() + 1) }
+    );
+    simple_slides_action!(on_slides_add_text, add_text_box, |_| "Text box added"
+        .into());
     simple_slides_action!(on_slides_add_shape, add_shape, |_| "Shape added".into());
     simple_slides_action!(on_slides_add_table, add_table, |_| "Table added".into());
     simple_slides_action!(on_slides_delete_element, delete_selected, |_| {
@@ -912,7 +921,9 @@ fn open_slides_path(
             }
         }
         Err(error) => {
-            state.borrow_mut().set_status(format!("Open failed: {error}"));
+            state
+                .borrow_mut()
+                .set_status(format!("Open failed: {error}"));
             if let Some(ui) = ui.upgrade() {
                 sync_ui(&state.borrow(), &ui);
             }
