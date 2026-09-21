@@ -457,8 +457,6 @@ export component AppWindow inherits Window {
         : (root.page == 4
             ? root.sheets-title + " — Nexa Office"
             : (root.page == 5 ? root.slides-title + " — Nexa Office" : "Nexa Office"));
-    width: 1240px;
-    height: 800px;
     preferred-width: 1240px;
     preferred-height: 800px;
     min-width: 840px;
@@ -523,9 +521,8 @@ export component AppWindow inherits Window {
     in property <[SlideElementRow]> slides-elements;
 
     private property <bool> nav-compact: root.compact-navigation;
-    private property <bool> dense-workspace: root.compact-navigation || root.width < 1080px;
+    private property <bool> dense-workspace: root.compact-navigation;
     private property <bool> dense-docs: root.dense-workspace;
-    private property <bool> compact-home: root.height < 700px;
 
     callback create-docs();
     callback create-sheets();
@@ -863,22 +860,22 @@ export component AppWindow inherits Window {
                 VerticalLayout {
                     padding-left: root.nav-compact ? 30px : 56px;
                     padding-right: root.nav-compact ? 30px : 56px;
-                    padding-top: root.compact-home ? 24px : (root.nav-compact ? 40px : 48px);
-                    padding-bottom: root.compact-home ? 20px : 32px;
-                    spacing: root.compact-home ? 14px : 22px;
+                    padding-top: root.nav-compact ? 28px : 36px;
+                    padding-bottom: 24px;
+                    spacing: 18px;
 
                     HorizontalLayout {
-                        height: root.compact-home ? 64px : 84px;
+                        height: 74px;
                         spacing: 18px;
 
                         VerticalLayout {
                             horizontal-stretch: 1;
-                            spacing: root.compact-home ? 4px : 8px;
+                            spacing: 6px;
 
                             Text {
                                 text: root.is-chinese ? "今天想处理什么？" : "What are you working on?";
                                 color: #101828;
-                                font-size: root.compact-home ? 24px : 30px;
+                                font-size: 27px;
                                 font-weight: 720;
                                 vertical-alignment: center;
                             }
@@ -950,7 +947,7 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    if !root.compact-home : VerticalLayout {
+                    VerticalLayout {
                         spacing: 0px;
 
                         Text {
