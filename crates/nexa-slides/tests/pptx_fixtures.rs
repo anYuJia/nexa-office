@@ -121,7 +121,6 @@ fn deleting_a_slide_rewrites_only_the_active_slide_relationship_sequence() {
     );
 }
 
-
 #[test]
 fn unicode_text_survives_pptx_round_trip() {
     let sample = "中文演示 🚀 مرحبا שלום";
@@ -136,8 +135,14 @@ fn unicode_text_survives_pptx_round_trip() {
         .into_inner();
     let reopened = open_pptx(Cursor::new(bytes)).unwrap();
 
-    assert!(reopened.presentation().slide(0).unwrap().elements.iter().any(
-        |element| element.text() == sample
-    ));
+    assert!(
+        reopened
+            .presentation()
+            .slide(0)
+            .unwrap()
+            .elements
+            .iter()
+            .any(|element| element.text() == sample)
+    );
     assert!(reopened.can_save());
 }
