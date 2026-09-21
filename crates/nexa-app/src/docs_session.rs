@@ -166,6 +166,10 @@ impl DocsSession {
     }
 
     pub fn set_current_paragraph_text(&mut self, text: &str) -> Result<(), DocsSessionError> {
+        let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+        let mut segments = normalized.split('\n');
+        let first = segments.next().unwrap_or_default();
+
         let len = self.current_paragraph_len()?;
         self.editor.set_selection(Selection {
             anchor: TextPosition {
@@ -177,7 +181,14 @@ impl DocsSession {
                 offset: len,
             },
         })?;
-        self.editor.insert_text(text)?;
+        self.editor.insert_text(first)?;
+
+        for segment in segments {
+            self.editor.insert_paragraph()?;
+            self.current_paragraph = self.current_paragraph.saturating_add(1);
+            self.editor.insert_text(segment)?;
+        }
+
         self.dirty = true;
         Ok(())
     }
@@ -374,6 +385,23 @@ mod tests {
 
         let _ = fs::remove_file(path);
         let _ = fs::remove_dir(directory);
+    }
+
+    #[test]
+    fn multiline_edit_creates_real_paragraphs() {
+        let mut session = DocsSession::blank();
+
+        session
+            .set_current_paragraph_text("第一段\nSecond paragraph\n第三段")
+            .unwrap();
+
+        assert_eq!(session.paragraph_count(), 3);
+        assert_eq!(session.current_paragraph_index(), 2);
+        assert_eq!(session.current_paragraph_text(), "第三段");
+        assert_eq!(
+            session.editor.document().plain_text(),
+            "第一段\nSecond paragraph\n第三段"
+        );
     }
 
     #[test]
