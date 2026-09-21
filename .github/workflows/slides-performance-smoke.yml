@@ -1,0 +1,79 @@
+name: Slides Performance Smoke
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slides-performance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  slides-performance:
+    name: Linux presentation deck smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install measurement dependency
+        run: sudo apt-get update && sudo apt-get install -y time
+
+      - name: Verify pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release Slides benchmark
+        run: cargo build --release --locked -p nexa-slides --example phase5_perf
+
+      - name: Run presentation benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/time -v target/release/examples/phase5_perf > slides-performance.txt 2> slides-time.txt
+          cat slides-performance.txt
+          cat slides-time.txt
+
+      - name: Enforce shared-runner regression gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          metric() {
+            grep "^$1=" slides-performance.txt | tail -1 | cut -d= -f2
+          }
+
+          slides="$(metric slides)"
+          elements="$(metric elements)"
+          scanned="$(metric scanned_elements)"
+          pptx_bytes="$(metric pptx_bytes)"
+          save_us="$(metric save_us)"
+          reopen_us="$(metric reopen_us)"
+          scan_us="$(metric scan_us)"
+          rss_kib="$(grep 'Maximum resident set size' slides-time.txt | awk '{print $6}')"
+
+          test "$slides" -eq 180
+          test "$elements" -gt 2000
+          test "$scanned" -eq "$elements"
+          test "$pptx_bytes" -lt 33554432
+          test "$save_us" -lt 5000000
+          test "$reopen_us" -lt 5000000
+          test "$scan_us" -lt 500000
+          test "$rss_kib" -lt 131072
+
+      - name: Upload Slides performance result
+        uses: actions/upload-artifact@v4
+        with:
+          name: slides-performance
+          path: |
+            slides-performance.txt
+            slides-time.txt
