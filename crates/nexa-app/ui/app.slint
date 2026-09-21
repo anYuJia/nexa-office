@@ -1742,7 +1742,12 @@ export component AppWindow inherits Window {
 
                             ToolButton { label: "A↑"; accessible-name: root.is-chinese ? "按当前列升序" : "Sort ascending"; quiet: true; activated => { root.sheets-sort(true); } }
                             ToolButton { label: "A↓"; accessible-name: root.is-chinese ? "按当前列降序" : "Sort descending"; quiet: true; activated => { root.sheets-sort(false); } }
-                            ToolButton { label: root.is-chinese ? "冻结行" : "Freeze row"; quiet: true; activated => { root.sheets-freeze-row(); } }
+                            ToolButton {
+                                label: root.dense-workspace ? "R" : (root.is-chinese ? "冻结行" : "Freeze row");
+                                accessible-name: root.is-chinese ? "冻结行" : "Freeze row";
+                                quiet: true;
+                                activated => { root.sheets-freeze-row(); }
+                            }
                             ToolButton {
                                 label: root.dense-workspace ? "C" : (root.is-chinese ? "冻结列" : "Freeze col");
                                 accessible-name: root.is-chinese ? "冻结列" : "Freeze column";

@@ -2175,6 +2175,14 @@ mod tests {
     }
 
     #[test]
+    fn office_file_kind_matches_supported_formats() {
+        assert_eq!(office_file_kind(Path::new("/tmp/a.docx")), "DOCX");
+        assert_eq!(office_file_kind(Path::new("/tmp/a.XLSX")), "XLSX");
+        assert_eq!(office_file_kind(Path::new("/tmp/a.pptx")), "PPTX");
+        assert_eq!(office_file_kind(Path::new("/tmp/a.txt")), "FILE");
+    }
+
+    #[test]
     fn english_status_remains_stable() {
         assert_eq!(
             localize_status("Opened quarterly.docx", false),
