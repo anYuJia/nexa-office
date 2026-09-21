@@ -156,8 +156,10 @@ impl DocxDocument {
 
         let numbering_part = PartName::new(NUMBERING_PART)?;
         if self.package.part(&numbering_part).is_some() {
-            self.package
-                .replace_part(&numbering_part, write_numbering_xml(&self.document.numbering))?;
+            self.package.replace_part(
+                &numbering_part,
+                write_numbering_xml(&self.document.numbering),
+            )?;
         }
 
         let relationships = self
@@ -252,7 +254,10 @@ pub fn open_docx<R: Read + Seek>(reader: R) -> Result<DocxDocument, DocxError> {
         .ok_or(DocxError::MissingMainPart)?
         .bytes();
 
-    let relationships = package.relationships(&main_part).cloned().unwrap_or_default();
+    let relationships = package
+        .relationships(&main_part)
+        .cloned()
+        .unwrap_or_default();
     let mut document = parse_document_xml(main_bytes, &relationships)?;
 
     let styles_part = relationship_target_by_suffix(&relationships, "/styles")
@@ -299,10 +304,7 @@ pub fn open_docx<R: Read + Seek>(reader: R) -> Result<DocxDocument, DocxError> {
     })
 }
 
-pub fn save_docx<W: Write + Seek>(
-    document: &mut DocxDocument,
-    writer: W,
-) -> Result<W, DocxError> {
+pub fn save_docx<W: Write + Seek>(document: &mut DocxDocument, writer: W) -> Result<W, DocxError> {
     document.sync_package()?;
     write_owned_package(&document.package, writer).map_err(DocxError::Zip)
 }
@@ -537,7 +539,8 @@ fn parse_word_xml(
                     }
                     "jc" if in_ppr => {
                         if let Some(paragraph) = &mut paragraph {
-                            paragraph.properties.alignment = match attr(&element, "val").as_deref() {
+                            paragraph.properties.alignment = match attr(&element, "val").as_deref()
+                            {
                                 Some("center") => Alignment::Center,
                                 Some("right") | Some("end") => Alignment::Right,
                                 Some("both") | Some("distribute") => Alignment::Justify,
@@ -564,8 +567,7 @@ fn parse_word_xml(
                             paragraph.properties.first_line_twips =
                                 parse_i32_attr(&element, "firstLine")
                                     .or_else(|| {
-                                        parse_i32_attr(&element, "hanging")
-                                            .map(|value| -value)
+                                        parse_i32_attr(&element, "hanging").map(|value| -value)
                                     })
                                     .unwrap_or(0);
                         }
@@ -631,7 +633,8 @@ fn parse_word_xml(
                     }
                     "docPr" => {
                         if let Some(run) = &mut run {
-                            run.image_alt = attr(&element, "descr").or_else(|| attr(&element, "name"));
+                            run.image_alt =
+                                attr(&element, "descr").or_else(|| attr(&element, "name"));
                         }
                     }
                     "blip" => {
@@ -714,7 +717,8 @@ fn parse_word_xml(
                     }
                     "jc" if in_ppr => {
                         if let Some(paragraph) = &mut paragraph {
-                            paragraph.properties.alignment = match attr(&element, "val").as_deref() {
+                            paragraph.properties.alignment = match attr(&element, "val").as_deref()
+                            {
                                 Some("center") => Alignment::Center,
                                 Some("right") | Some("end") => Alignment::Right,
                                 Some("both") | Some("distribute") => Alignment::Justify,
@@ -741,8 +745,7 @@ fn parse_word_xml(
                             paragraph.properties.first_line_twips =
                                 parse_i32_attr(&element, "firstLine")
                                     .or_else(|| {
-                                        parse_i32_attr(&element, "hanging")
-                                            .map(|value| -value)
+                                        parse_i32_attr(&element, "hanging").map(|value| -value)
                                     })
                                     .unwrap_or(0);
                         }
@@ -808,7 +811,8 @@ fn parse_word_xml(
                     }
                     "docPr" => {
                         if let Some(run) = &mut run {
-                            run.image_alt = attr(&element, "descr").or_else(|| attr(&element, "name"));
+                            run.image_alt =
+                                attr(&element, "descr").or_else(|| attr(&element, "name"));
                         }
                     }
                     "blip" => {
@@ -870,9 +874,7 @@ fn parse_word_xml(
                     "pPr" => in_ppr = false,
                     "numPr" => in_numpr = false,
                     "r" => {
-                        if let (Some(paragraph), Some(builder)) =
-                            (&mut paragraph, run.take())
-                        {
+                        if let (Some(paragraph), Some(builder)) = (&mut paragraph, run.take()) {
                             paragraph.runs.extend(builder.finish(relationships));
                         }
                     }
@@ -881,11 +883,7 @@ fn parse_word_xml(
                             if value.runs.is_empty() {
                                 value.runs.push(Run::text(""));
                             }
-                            push_block(
-                                &mut blocks,
-                                &mut table_stack,
-                                Block::Paragraph(value),
-                            );
+                            push_block(&mut blocks, &mut table_stack, Block::Paragraph(value));
                         }
                     }
                     "tc" => {
@@ -951,30 +949,26 @@ fn parse_word_xml(
     }
 
     if !root_seen {
-        return Err(DocxError::Xml(format!("missing root element {expected_root}")));
+        return Err(DocxError::Xml(format!(
+            "missing root element {expected_root}"
+        )));
     }
 
     Ok((blocks, sections, compatibility))
 }
 
-fn push_block(
-    blocks: &mut Vec<Block>,
-    tables: &mut [TableBuilder],
-    block: Block,
-) {
-    if let Some(cell) = tables.last_mut().and_then(|table| table.current_cell.as_mut()) {
+fn push_block(blocks: &mut Vec<Block>, tables: &mut [TableBuilder], block: Block) {
+    if let Some(cell) = tables
+        .last_mut()
+        .and_then(|table| table.current_cell.as_mut())
+    {
         cell.blocks.push(block);
     } else {
         blocks.push(block);
     }
 }
 
-fn mark_unsupported(
-    report: &mut CompatibilityReport,
-    part: &str,
-    element: &str,
-    detail: &str,
-) {
+fn mark_unsupported(report: &mut CompatibilityReport, part: &str, element: &str, detail: &str) {
     if !report
         .issues
         .iter()
@@ -1116,21 +1110,23 @@ fn parse_styles_xml(input: &[u8]) -> Result<StyleSheet, DocxError> {
                 }
                 _ => {}
             },
-            Event::End(element) => match String::from_utf8_lossy(element.local_name().as_ref()).as_ref() {
-                "pPr" => in_ppr = false,
-                "rPr" => in_rpr = false,
-                "style" => {
-                    if let Some(style) = current.take() {
-                        if style.id == "Normal" || sheet.default_paragraph_style.is_none() {
-                            if style.kind == StyleKind::Paragraph {
-                                sheet.default_paragraph_style = Some(style.id.clone());
+            Event::End(element) => {
+                match String::from_utf8_lossy(element.local_name().as_ref()).as_ref() {
+                    "pPr" => in_ppr = false,
+                    "rPr" => in_rpr = false,
+                    "style" => {
+                        if let Some(style) = current.take() {
+                            if style.id == "Normal" || sheet.default_paragraph_style.is_none() {
+                                if style.kind == StyleKind::Paragraph {
+                                    sheet.default_paragraph_style = Some(style.id.clone());
+                                }
                             }
+                            sheet.styles.insert(style.id.clone(), style);
                         }
-                        sheet.styles.insert(style.id.clone(), style);
                     }
+                    _ => {}
                 }
-                _ => {}
-            },
+            }
             Event::DocType(_) => {
                 return Err(DocxError::Xml("DOCTYPE is not allowed in styles".into()));
             }
@@ -1217,30 +1213,30 @@ fn parse_numbering_xml(input: &[u8]) -> Result<Numbering, DocxError> {
                 }
                 _ => {}
             },
-            Event::End(element) => match String::from_utf8_lossy(element.local_name().as_ref()).as_ref() {
-                "lvl" => {
-                    if let (Some(list), Some(level)) = (&mut abstract_list, level.take()) {
-                        list.levels.insert(level.level, level);
+            Event::End(element) => {
+                match String::from_utf8_lossy(element.local_name().as_ref()).as_ref() {
+                    "lvl" => {
+                        if let (Some(list), Some(level)) = (&mut abstract_list, level.take()) {
+                            list.levels.insert(level.level, level);
+                        }
                     }
-                }
-                "abstractNum" => {
-                    if let Some(list) = abstract_list.take() {
-                        numbering.abstract_lists.insert(list.id, list);
+                    "abstractNum" => {
+                        if let Some(list) = abstract_list.take() {
+                            numbering.abstract_lists.insert(list.id, list);
+                        }
                     }
-                }
-                "num" => {
-                    if let (Some(id), Some(abstract_id)) = (number_id.take(), abstract_id_for_num.take()) {
-                        numbering.instances.insert(
-                            id,
-                            NumberingInstance {
-                                id,
-                                abstract_id,
-                            },
-                        );
+                    "num" => {
+                        if let (Some(id), Some(abstract_id)) =
+                            (number_id.take(), abstract_id_for_num.take())
+                        {
+                            numbering
+                                .instances
+                                .insert(id, NumberingInstance { id, abstract_id });
+                        }
                     }
+                    _ => {}
                 }
-                _ => {}
-            },
+            }
             Event::DocType(_) => {
                 return Err(DocxError::Xml("DOCTYPE is not allowed in numbering".into()));
             }
@@ -1287,7 +1283,10 @@ fn apply_page_margins(element: &BytesStart<'_>, section: &mut SectionProperties)
 }
 
 fn bool_on(element: &BytesStart<'_>) -> bool {
-    !matches!(attr(element, "val").as_deref(), Some("0" | "false" | "off" | "none"))
+    !matches!(
+        attr(element, "val").as_deref(),
+        Some("0" | "false" | "off" | "none")
+    )
 }
 
 fn local_name(element: &BytesStart<'_>) -> String {
@@ -1419,9 +1418,7 @@ fn write_paragraph_properties(output: &mut String, props: &ParagraphProperties) 
         }
         output.push_str("/>");
     }
-    if props.indent_left_twips != 0
-        || props.indent_right_twips != 0
-        || props.first_line_twips != 0
+    if props.indent_left_twips != 0 || props.indent_right_twips != 0 || props.first_line_twips != 0
     {
         output.push_str("<w:ind");
         push_attr(output, "w:left", &props.indent_left_twips.to_string());
@@ -1429,7 +1426,11 @@ fn write_paragraph_properties(output: &mut String, props: &ParagraphProperties) 
         if props.first_line_twips >= 0 {
             push_attr(output, "w:firstLine", &props.first_line_twips.to_string());
         } else {
-            push_attr(output, "w:hanging", &props.first_line_twips.unsigned_abs().to_string());
+            push_attr(
+                output,
+                "w:hanging",
+                &props.first_line_twips.unsigned_abs().to_string(),
+            );
         }
         output.push_str("/>");
     }
@@ -1593,10 +1594,22 @@ fn write_section_properties(output: &mut String, section: &SectionProperties) {
     output.push_str("/><w:pgMar");
     push_attr(output, "w:top", &section.margins.top_twips.to_string());
     push_attr(output, "w:right", &section.margins.right_twips.to_string());
-    push_attr(output, "w:bottom", &section.margins.bottom_twips.to_string());
+    push_attr(
+        output,
+        "w:bottom",
+        &section.margins.bottom_twips.to_string(),
+    );
     push_attr(output, "w:left", &section.margins.left_twips.to_string());
-    push_attr(output, "w:header", &section.margins.header_twips.to_string());
-    push_attr(output, "w:footer", &section.margins.footer_twips.to_string());
+    push_attr(
+        output,
+        "w:header",
+        &section.margins.header_twips.to_string(),
+    );
+    push_attr(
+        output,
+        "w:footer",
+        &section.margins.footer_twips.to_string(),
+    );
     output.push_str("/></w:sectPr>");
 }
 
@@ -1722,8 +1735,7 @@ mod tests {
     #[test]
     fn blank_docx_saves_and_reopens() {
         let mut document = DocxDocument::blank();
-        document.document_mut().paragraph_mut(0).unwrap().runs =
-            vec![Run::text("Hello Nexa")];
+        document.document_mut().paragraph_mut(0).unwrap().runs = vec![Run::text("Hello Nexa")];
 
         let bytes = save_docx(&mut document, Cursor::new(Vec::new()))
             .unwrap()
@@ -1777,10 +1789,22 @@ mod tests {
             .into_inner();
         let reopened = open_docx(Cursor::new(bytes)).unwrap();
 
-        assert_eq!(reopened.document().paragraph(0).unwrap().plain_text(), "Title");
-        assert!(reopened.document().paragraph(0).unwrap().runs[0].properties.bold);
         assert_eq!(
-            reopened.document().paragraph(0).unwrap().properties.alignment,
+            reopened.document().paragraph(0).unwrap().plain_text(),
+            "Title"
+        );
+        assert!(
+            reopened.document().paragraph(0).unwrap().runs[0]
+                .properties
+                .bold
+        );
+        assert_eq!(
+            reopened
+                .document()
+                .paragraph(0)
+                .unwrap()
+                .properties
+                .alignment,
             Alignment::Center
         );
         assert_eq!(
@@ -1798,8 +1822,14 @@ mod tests {
             .into_inner();
         let needle = b"<w:p>";
         let replacement = b"<w:bookmarkStart/><w:p>";
-        if let Some(position) = bytes.windows(needle.len()).position(|window| window == needle) {
-            bytes.splice(position..position + needle.len(), replacement.iter().copied());
+        if let Some(position) = bytes
+            .windows(needle.len())
+            .position(|window| window == needle)
+        {
+            bytes.splice(
+                position..position + needle.len(),
+                replacement.iter().copied(),
+            );
         }
 
         if let Ok(mut opened) = open_docx(Cursor::new(bytes)) {

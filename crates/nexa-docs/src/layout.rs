@@ -86,13 +86,7 @@ impl Paginator {
                     );
                 }
                 Block::Table(table) => {
-                    self.layout_table(
-                        &mut pages,
-                        block_index,
-                        section_index,
-                        section,
-                        table,
-                    );
+                    self.layout_table(&mut pages, block_index, section_index, section, table);
                 }
             }
         }
@@ -174,7 +168,11 @@ impl Paginator {
             let height = fragment_before
                 .saturating_add(measurement.line_height_twips.saturating_mul(lines_fit))
                 .saturating_add(fragment_after)
-                .max(self.config.paragraph_minimum_height_twips.min(available.max(1)));
+                .max(
+                    self.config
+                        .paragraph_minimum_height_twips
+                        .min(available.max(1)),
+                );
 
             let page = pages.last_mut().expect("page exists");
             let y = section
@@ -347,11 +345,7 @@ struct ParagraphMeasurement {
     line_height_twips: u32,
 }
 
-fn ensure_page(
-    pages: &mut Vec<PageLayout>,
-    section_index: usize,
-    section: &SectionProperties,
-) {
+fn ensure_page(pages: &mut Vec<PageLayout>, section_index: usize, section: &SectionProperties) {
     if pages
         .last()
         .is_none_or(|page| page.section_index != section_index)
@@ -493,7 +487,12 @@ mod tests {
         let layout = Paginator::default().layout(&document);
 
         assert!(layout.page_count() > 1);
-        assert!(layout.pages.iter().all(|page| page.used_height_twips <= 12_960));
+        assert!(
+            layout
+                .pages
+                .iter()
+                .all(|page| page.used_height_twips <= 12_960)
+        );
     }
 
     #[test]

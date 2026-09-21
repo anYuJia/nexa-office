@@ -125,7 +125,11 @@ impl Default for Paragraph {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ModelError {
-    InvalidRange { start: usize, end: usize, len: usize },
+    InvalidRange {
+        start: usize,
+        end: usize,
+        len: usize,
+    },
     InvalidParagraphIndex(usize),
 }
 
@@ -157,7 +161,11 @@ impl Paragraph {
         self.runs.iter().map(Run::logical_len).sum()
     }
 
-    pub fn replace_range(&mut self, range: Range<usize>, replacement: &str) -> Result<(), ModelError> {
+    pub fn replace_range(
+        &mut self,
+        range: Range<usize>,
+        replacement: &str,
+    ) -> Result<(), ModelError> {
         let len = self.logical_len();
         validate_range(&range, len)?;
 
@@ -184,7 +192,11 @@ impl Paragraph {
     pub fn split_at(&mut self, offset: usize) -> Result<Paragraph, ModelError> {
         let len = self.logical_len();
         if offset > len {
-            return Err(ModelError::InvalidRange { start: offset, end: offset, len });
+            return Err(ModelError::InvalidRange {
+                start: offset,
+                end: offset,
+                len,
+            });
         }
         let (before, after) = split_runs_at(&self.runs, offset);
         self.runs = normalize_runs(before);
@@ -215,26 +227,37 @@ impl Paragraph {
 
     #[must_use]
     pub fn estimated_bytes(&self) -> usize {
-        self.runs.iter().map(|run| {
-            let content = match &run.content {
-                RunContent::Text(text) => text.capacity(),
-                RunContent::Image(image) => {
-                    image.relationship_id.capacity()
-                        + image.alt_text.as_ref().map_or(0, String::capacity)
-                }
-                RunContent::Tab | RunContent::LineBreak => 0,
-            };
-            content
-                + run.properties.font_family.as_ref().map_or(0, String::capacity)
-                + run.properties.style_id.as_ref().map_or(0, String::capacity)
-                + std::mem::size_of::<Run>()
-        }).sum()
+        self.runs
+            .iter()
+            .map(|run| {
+                let content = match &run.content {
+                    RunContent::Text(text) => text.capacity(),
+                    RunContent::Image(image) => {
+                        image.relationship_id.capacity()
+                            + image.alt_text.as_ref().map_or(0, String::capacity)
+                    }
+                    RunContent::Tab | RunContent::LineBreak => 0,
+                };
+                content
+                    + run
+                        .properties
+                        .font_family
+                        .as_ref()
+                        .map_or(0, String::capacity)
+                    + run.properties.style_id.as_ref().map_or(0, String::capacity)
+                    + std::mem::size_of::<Run>()
+            })
+            .sum()
     }
 }
 
 fn validate_range(range: &Range<usize>, len: usize) -> Result<(), ModelError> {
     if range.start > range.end || range.end > len {
-        return Err(ModelError::InvalidRange { start: range.start, end: range.end, len });
+        return Err(ModelError::InvalidRange {
+            start: range.start,
+            end: range.end,
+            len,
+        });
     }
     Ok(())
 }
@@ -259,7 +282,9 @@ fn split_runs_at(runs: &[Run], offset: usize) -> (Vec<Run>, Vec<Run>) {
                     let byte_index = if local == 0 {
                         0
                     } else {
-                        text.char_indices().nth(local).map_or(text.len(), |(index, _)| index)
+                        text.char_indices()
+                            .nth(local)
+                            .map_or(text.len(), |(index, _)| index)
                     };
                     if byte_index > 0 {
                         before.push(Run {
@@ -274,7 +299,9 @@ fn split_runs_at(runs: &[Run], offset: usize) -> (Vec<Run>, Vec<Run>) {
                         });
                     }
                 }
-                RunContent::Tab | RunContent::LineBreak | RunContent::Image(_) => after.push(run.clone()),
+                RunContent::Tab | RunContent::LineBreak | RunContent::Image(_) => {
+                    after.push(run.clone())
+                }
             }
         }
 
@@ -510,7 +537,10 @@ pub struct CompatibilityReport {
 impl CompatibilityReport {
     #[must_use]
     pub fn can_save(&self) -> bool {
-        !self.issues.iter().any(|issue| issue.severity == CompatibilitySeverity::SaveBlocked)
+        !self
+            .issues
+            .iter()
+            .any(|issue| issue.severity == CompatibilitySeverity::SaveBlocked)
     }
 
     pub fn block_save(
@@ -578,7 +608,11 @@ impl Document {
         paragraph_mut(&mut self.blocks, &mut target)
     }
 
-    pub fn replace_paragraph(&mut self, ordinal: usize, replacement: Paragraph) -> Result<(), ModelError> {
+    pub fn replace_paragraph(
+        &mut self,
+        ordinal: usize,
+        replacement: Paragraph,
+    ) -> Result<(), ModelError> {
         let target = self
             .paragraph_mut(ordinal)
             .ok_or(ModelError::InvalidParagraphIndex(ordinal))?;
@@ -586,7 +620,11 @@ impl Document {
         Ok(())
     }
 
-    pub fn insert_paragraph_after(&mut self, ordinal: usize, paragraph: Paragraph) -> Result<(), ModelError> {
+    pub fn insert_paragraph_after(
+        &mut self,
+        ordinal: usize,
+        paragraph: Paragraph,
+    ) -> Result<(), ModelError> {
         let mut target = ordinal;
         if insert_after(&mut self.blocks, &mut target, paragraph) {
             Ok(())
@@ -615,24 +653,35 @@ impl Document {
 }
 
 fn count_paragraphs(blocks: &[Block]) -> usize {
-    blocks.iter().map(|block| match block {
-        Block::Paragraph(_) => 1,
-        Block::Table(table) => table.rows.iter().flat_map(|row| &row.cells)
-            .map(|cell| count_paragraphs(&cell.blocks)).sum(),
-    }).sum()
+    blocks
+        .iter()
+        .map(|block| match block {
+            Block::Paragraph(_) => 1,
+            Block::Table(table) => table
+                .rows
+                .iter()
+                .flat_map(|row| &row.cells)
+                .map(|cell| count_paragraphs(&cell.blocks))
+                .sum(),
+        })
+        .sum()
 }
 
 fn paragraph_ref<'a>(blocks: &'a [Block], target: &mut usize) -> Option<&'a Paragraph> {
     for block in blocks {
         match block {
             Block::Paragraph(paragraph) => {
-                if *target == 0 { return Some(paragraph); }
+                if *target == 0 {
+                    return Some(paragraph);
+                }
                 *target -= 1;
             }
             Block::Table(table) => {
                 for row in &table.rows {
                     for cell in &row.cells {
-                        if let Some(value) = paragraph_ref(&cell.blocks, target) { return Some(value); }
+                        if let Some(value) = paragraph_ref(&cell.blocks, target) {
+                            return Some(value);
+                        }
                     }
                 }
             }
@@ -645,13 +694,17 @@ fn paragraph_mut<'a>(blocks: &'a mut [Block], target: &mut usize) -> Option<&'a 
     for block in blocks {
         match block {
             Block::Paragraph(paragraph) => {
-                if *target == 0 { return Some(paragraph); }
+                if *target == 0 {
+                    return Some(paragraph);
+                }
                 *target -= 1;
             }
             Block::Table(table) => {
                 for row in &mut table.rows {
                     for cell in &mut row.cells {
-                        if let Some(value) = paragraph_mut(&mut cell.blocks, target) { return Some(value); }
+                        if let Some(value) = paragraph_mut(&mut cell.blocks, target) {
+                            return Some(value);
+                        }
                     }
                 }
             }
@@ -674,7 +727,9 @@ fn insert_after(blocks: &mut Vec<Block>, target: &mut usize, paragraph: Paragrap
             Block::Table(table) => {
                 for row in &mut table.rows {
                     for cell in &mut row.cells {
-                        if insert_after(&mut cell.blocks, target, paragraph.clone()) { return true; }
+                        if insert_after(&mut cell.blocks, target, paragraph.clone()) {
+                            return true;
+                        }
                     }
                 }
             }
@@ -690,7 +745,9 @@ fn remove_paragraph(blocks: &mut Vec<Block>, target: &mut usize) -> Option<Parag
         match &mut blocks[index] {
             Block::Paragraph(_) => {
                 if *target == 0 {
-                    let Block::Paragraph(value) = blocks.remove(index) else { unreachable!() };
+                    let Block::Paragraph(value) = blocks.remove(index) else {
+                        unreachable!()
+                    };
                     return Some(value);
                 }
                 *target -= 1;
@@ -698,7 +755,9 @@ fn remove_paragraph(blocks: &mut Vec<Block>, target: &mut usize) -> Option<Parag
             Block::Table(table) => {
                 for row in &mut table.rows {
                     for cell in &mut row.cells {
-                        if let Some(value) = remove_paragraph(&mut cell.blocks, target) { return Some(value); }
+                        if let Some(value) = remove_paragraph(&mut cell.blocks, target) {
+                            return Some(value);
+                        }
                     }
                 }
             }
@@ -714,7 +773,9 @@ fn collect_text(blocks: &[Block], output: &mut Vec<String>) {
             Block::Paragraph(paragraph) => output.push(paragraph.plain_text()),
             Block::Table(table) => {
                 for row in &table.rows {
-                    for cell in &row.cells { collect_text(&cell.blocks, output); }
+                    for cell in &row.cells {
+                        collect_text(&cell.blocks, output);
+                    }
                 }
             }
         }
@@ -727,12 +788,24 @@ mod tests {
 
     #[test]
     fn range_edit_keeps_surrounding_formatting() {
-        let bold = RunProperties { bold: true, ..RunProperties::default() };
-        let italic = RunProperties { italic: true, ..RunProperties::default() };
+        let bold = RunProperties {
+            bold: true,
+            ..RunProperties::default()
+        };
+        let italic = RunProperties {
+            italic: true,
+            ..RunProperties::default()
+        };
         let mut paragraph = Paragraph {
             runs: vec![
-                Run { content: RunContent::Text("Hello".into()), properties: bold },
-                Run { content: RunContent::Text(" world".into()), properties: italic },
+                Run {
+                    content: RunContent::Text("Hello".into()),
+                    properties: bold,
+                },
+                Run {
+                    content: RunContent::Text(" world".into()),
+                    properties: italic,
+                },
             ],
             properties: ParagraphProperties::default(),
         };

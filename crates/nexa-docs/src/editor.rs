@@ -130,12 +130,17 @@ enum HistoryChange {
 impl HistoryChange {
     fn estimated_bytes(&self) -> usize {
         match self {
-            Self::Paragraph { before, after, .. } => {
-                before.estimated_bytes().saturating_add(after.estimated_bytes())
-            }
-            Self::ParagraphSet { changes } => changes.iter().map(|(_, before, after)| {
-                before.estimated_bytes().saturating_add(after.estimated_bytes())
-            }).sum(),
+            Self::Paragraph { before, after, .. } => before
+                .estimated_bytes()
+                .saturating_add(after.estimated_bytes()),
+            Self::ParagraphSet { changes } => changes
+                .iter()
+                .map(|(_, before, after)| {
+                    before
+                        .estimated_bytes()
+                        .saturating_add(after.estimated_bytes())
+                })
+                .sum(),
             Self::Split {
                 before,
                 first,
@@ -150,7 +155,9 @@ impl HistoryChange {
 
     fn apply_before(&self, document: &mut Document) -> Result<(), ModelError> {
         match self {
-            Self::Paragraph { index, before, .. } => document.replace_paragraph(*index, before.clone()),
+            Self::Paragraph { index, before, .. } => {
+                document.replace_paragraph(*index, before.clone())
+            }
             Self::ParagraphSet { changes } => {
                 for (index, before, _) in changes {
                     document.replace_paragraph(*index, before.clone())?;
@@ -167,7 +174,9 @@ impl HistoryChange {
 
     fn apply_after(&self, document: &mut Document) -> Result<(), ModelError> {
         match self {
-            Self::Paragraph { index, after, .. } => document.replace_paragraph(*index, after.clone()),
+            Self::Paragraph { index, after, .. } => {
+                document.replace_paragraph(*index, after.clone())
+            }
             Self::ParagraphSet { changes } => {
                 for (index, _, after) in changes {
                     document.replace_paragraph(*index, after.clone())?;
@@ -229,8 +238,7 @@ impl History {
             || self.estimated_bytes > self.limits.max_estimated_bytes
         {
             if let Some(removed) = self.undo.pop_front() {
-                self.estimated_bytes =
-                    self.estimated_bytes.saturating_sub(removed.estimated_bytes);
+                self.estimated_bytes = self.estimated_bytes.saturating_sub(removed.estimated_bytes);
             } else {
                 break;
             }
@@ -451,7 +459,10 @@ impl DocsEditor {
         let count = matches.len();
         let mut grouped: BTreeMap<usize, Vec<Range<usize>>> = BTreeMap::new();
         for found in matches {
-            grouped.entry(found.paragraph).or_default().push(found.range);
+            grouped
+                .entry(found.paragraph)
+                .or_default()
+                .push(found.range);
         }
 
         let mut changes = Vec::with_capacity(grouped.len());
@@ -516,10 +527,7 @@ impl DocsEditor {
         self.history.undo.len()
     }
 
-    fn map_selected_runs(
-        &mut self,
-        update: impl Fn(&mut RunProperties),
-    ) -> Result<(), EditError> {
+    fn map_selected_runs(&mut self, update: impl Fn(&mut RunProperties)) -> Result<(), EditError> {
         let (start, end) = self.selection.ordered();
         if start.paragraph != end.paragraph {
             return Err(EditError::CrossParagraphSelection);
