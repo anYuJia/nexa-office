@@ -321,6 +321,66 @@ export struct SlideElementRow {
     text: string,
 }
 
+export struct RecentFileRow {
+    label: string,
+    path: string,
+}
+
+component RecentFileItem inherits Rectangle {
+    in property <string> label;
+    in property <string> path;
+    callback activated();
+
+    height: 46px;
+    background: transparent;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-description: root.path;
+    accessible-action-default => { root.activated(); }
+
+    VerticalLayout {
+        x: 0px;
+        width: parent.width - 24px;
+        spacing: 2px;
+
+        Text {
+            text: root.label;
+            color: #344054;
+            font-size: 12px;
+            font-weight: 600;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        Text {
+            text: root.path;
+            color: #98a2b3;
+            font-size: 9px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    Text {
+        x: parent.width - 16px;
+        width: 16px;
+        text: "›";
+        color: #98a2b3;
+        font-size: 18px;
+        vertical-alignment: center;
+    }
+
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: #f0f1f3;
+    }
+
+    TouchArea {
+        clicked => { root.activated(); }
+    }
+}
+
 component SheetHeaderCell inherits Rectangle {
     in property <string> label;
 
@@ -393,6 +453,7 @@ export component AppWindow inherits Window {
     in property <string> build-text: "";
     in property <string> renderer-text: "";
     in property <string> shell-init-text: "";
+    in property <[RecentFileRow]> recent-files;
 
     in-out property <string> docs-path-input: "";
     in-out property <string> docs-search-query: "";
@@ -450,6 +511,11 @@ export component AppWindow inherits Window {
     callback toggle-status-bar();
     callback toggle-compact-navigation();
     callback set-language(int);
+    callback native-open();
+    callback native-save-as();
+    callback native-print();
+    callback native-copy-path();
+    callback open-recent(string);
 
     callback docs-open-path(string);
     callback docs-save();
@@ -505,6 +571,12 @@ export component AppWindow inherits Window {
             title: root.is-chinese ? "文件" : "File";
 
             MenuItem {
+                title: root.is-chinese ? "打开…" : "Open…";
+                shortcut: @keys(Control + O);
+                activated => { root.native-open(); }
+            }
+
+            MenuItem {
                 title: root.is-chinese ? "新建文档" : "New Document";
                 shortcut: @keys(Control + N);
                 activated => { root.create-docs(); }
@@ -535,6 +607,26 @@ export component AppWindow inherits Window {
                         root.slides-save();
                     }
                 }
+            }
+
+            MenuItem {
+                title: root.is-chinese ? "另存为…" : "Save As…";
+                shortcut: @keys(Control + Shift + S);
+                enabled: root.page >= 3 && root.page <= 5;
+                activated => { root.native-save-as(); }
+            }
+
+            MenuItem {
+                title: root.is-chinese ? "打印…" : "Print…";
+                shortcut: @keys(Control + P);
+                enabled: root.page >= 3 && root.page <= 5;
+                activated => { root.native-print(); }
+            }
+
+            MenuItem {
+                title: root.is-chinese ? "复制文件路径" : "Copy File Path";
+                enabled: root.page >= 3 && root.page <= 5;
+                activated => { root.native-copy-path(); }
             }
         }
 
@@ -812,8 +904,27 @@ export component AppWindow inherits Window {
                             subtitle: root.is-chinese
                                 ? "PPTX · 原生演示文稿引擎"
                                 : "PPTX · native presentation engine";
-                            meta: "Phase 5";
+                            meta: root.is-chinese ? "可用" : "Ready";
                             activated => { root.create-slides(); }
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: 0px;
+
+                        Text {
+                            height: 28px;
+                            text: root.is-chinese ? "最近文件" : "RECENT";
+                            color: #98a2b3;
+                            font-size: 10px;
+                            font-weight: 650;
+                            vertical-alignment: center;
+                        }
+
+                        for recent in root.recent-files : RecentFileItem {
+                            label: recent.label;
+                            path: recent.path;
+                            activated => { root.open-recent(recent.path); }
                         }
                     }
 
@@ -835,7 +946,7 @@ export component AppWindow inherits Window {
                         Rectangle { horizontal-stretch: 1; background: transparent; }
 
                         Text {
-                            text: root.is-chinese ? "Docs + Sheets 可用" : "Docs + Sheets ready";
+                            text: root.is-chinese ? "Docs + Sheets + Slides 可用" : "Docs + Sheets + Slides ready";
                             color: #667085;
                             font-size: 10px;
                             vertical-alignment: center;
