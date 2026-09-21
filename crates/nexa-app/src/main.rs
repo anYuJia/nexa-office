@@ -7,8 +7,8 @@ mod sheets_session;
 
 use docs_session::{DocsSession, DocsSessionError};
 use nexa_core::{AppCommand, AppLanguage, AppPage, AppSettings, AppState, EditorKind};
-use sheets_session::{SheetRowData, SheetsSession, SheetsSessionError};
 use platform::PlatformInfo;
+use sheets_session::{SheetRowData, SheetsSession, SheetsSessionError};
 use std::{
     cell::RefCell,
     path::{Path, PathBuf},
@@ -1017,13 +1017,11 @@ fn sync_sheets_ui(session: Option<&SheetsSession>, ui: &AppWindow) {
     let is_chinese = ui.get_is_chinese();
     let Some(session) = session else {
         ui.set_sheets_title("Sheets".into());
-        ui.set_sheets_current_path(
-            if is_chinese {
-                "未打开表格".into()
-            } else {
-                "No workbook open".into()
-            },
-        );
+        ui.set_sheets_current_path(if is_chinese {
+            "未打开表格".into()
+        } else {
+            "No workbook open".into()
+        });
         ui.set_sheets_dirty_meta("".into());
         ui.set_sheets_compatibility_text("".into());
         ui.set_sheets_sheet_name("".into());
@@ -1040,17 +1038,15 @@ fn sync_sheets_ui(session: Option<&SheetsSession>, ui: &AppWindow) {
     };
 
     ui.set_sheets_title(session.title().into());
-    ui.set_sheets_current_path(
-        if session.path_text().is_empty() {
-            if is_chinese {
-                "尚未保存".into()
-            } else {
-                "Not saved yet".into()
-            }
+    ui.set_sheets_current_path(if session.path_text().is_empty() {
+        if is_chinese {
+            "尚未保存".into()
         } else {
-            session.path_text().into()
-        },
-    );
+            "Not saved yet".into()
+        }
+    } else {
+        session.path_text().into()
+    });
     ui.set_sheets_dirty_meta(
         if session.is_dirty() {
             if is_chinese {
@@ -1065,27 +1061,25 @@ fn sync_sheets_ui(session: Option<&SheetsSession>, ui: &AppWindow) {
         }
         .into(),
     );
-    ui.set_sheets_compatibility_text(
-        if session.can_save() {
-            if is_chinese {
-                "兼容性检查：可安全写入".into()
-            } else {
-                "Compatibility check: writable".into()
-            }
-        } else if is_chinese {
-            format!(
-                "已阻止保存 · {} 个暂不支持的结构",
-                session.compatibility_issue_count()
-            )
-            .into()
+    ui.set_sheets_compatibility_text(if session.can_save() {
+        if is_chinese {
+            "兼容性检查：可安全写入".into()
         } else {
-            format!(
-                "Save blocked · {} unsupported construct(s)",
-                session.compatibility_issue_count()
-            )
-            .into()
-        },
-    );
+            "Compatibility check: writable".into()
+        }
+    } else if is_chinese {
+        format!(
+            "已阻止保存 · {} 个暂不支持的结构",
+            session.compatibility_issue_count()
+        )
+        .into()
+    } else {
+        format!(
+            "Save blocked · {} unsupported construct(s)",
+            session.compatibility_issue_count()
+        )
+        .into()
+    });
     ui.set_sheets_sheet_name(
         format!(
             "{} · {}/{}",
@@ -1119,7 +1113,11 @@ fn sheet_row_from_data(row: SheetRowData) -> SheetRow {
     sheet_row_from_values(row.row as i32, row.row_label.into(), &row.cells)
 }
 
-fn sheet_row_from_values(row_index: i32, row_label: slint::SharedString, cells: &[String; 10]) -> SheetRow {
+fn sheet_row_from_values(
+    row_index: i32,
+    row_label: slint::SharedString,
+    cells: &[String; 10],
+) -> SheetRow {
     SheetRow {
         row_index,
         row_label,
@@ -1246,7 +1244,10 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
             format!("文档操作失败：{}", &other["Docs command failed: ".len()..])
         }
         other if other.starts_with("Sheets command failed: ") => {
-            format!("表格操作失败：{}", &other["Sheets command failed: ".len()..])
+            format!(
+                "表格操作失败：{}",
+                &other["Sheets command failed: ".len()..]
+            )
         }
         _ => status.to_owned(),
     }
