@@ -229,9 +229,12 @@ impl<'a> Parser<'a> {
 
     fn read_identifier_or_cell(&mut self) -> String {
         let start = self.index;
-        while self
-            .peek()
-            .is_some_and(|value| value.is_ascii_alphanumeric() || matches!(value, '_' | '
+        while self.peek().is_some_and(|value| {
+            value.is_ascii_alphanumeric() || value == '_' || value == '.' || value as u32 == 36
+        }) {
+            self.index += self.peek().unwrap().len_utf8();
+        }
+        self.source[start..self.index].to_owned()
     }
 
     fn read_cell_reference(&mut self) -> Result<CellAddress, FormulaError> {
