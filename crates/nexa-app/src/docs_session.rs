@@ -117,12 +117,12 @@ impl DocsSession {
 
     #[must_use]
     pub fn can_save(&self) -> bool {
-        self.editor.document().compatibility.can_save()
+        self.docx.can_save()
     }
 
     #[must_use]
     pub fn compatibility_issue_count(&self) -> usize {
-        self.editor.document().compatibility.issues.len()
+        self.docx.compatibility_issue_count()
     }
 
     #[must_use]

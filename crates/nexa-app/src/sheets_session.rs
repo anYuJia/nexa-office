@@ -137,7 +137,7 @@ impl SheetsSession {
 
     #[must_use]
     pub fn compatibility_issue_count(&self) -> usize {
-        self.xlsx.compatibility_issues().len()
+        self.xlsx.compatibility_issue_count()
     }
 
     #[must_use]

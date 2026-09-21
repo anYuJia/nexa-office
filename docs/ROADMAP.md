@@ -134,7 +134,7 @@ Exit criteria:
 
 ## Phase 5 — Nexa Slides MVP
 
-Status: **Final validation**.
+Status: **Completed**.
 
 Planning window: 5-8 weeks.
 
@@ -160,6 +160,8 @@ Exit criteria:
 - idle presentation does not continuously redraw.
 
 ## Phase 6 — Fidelity and Interoperability Hardening
+
+Status: **In progress**.
 
 Planning window: 8-12 weeks, then ongoing.
 

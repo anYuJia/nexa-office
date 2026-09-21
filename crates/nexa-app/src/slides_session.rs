@@ -122,7 +122,7 @@ impl SlidesSession {
 
     #[must_use]
     pub fn compatibility_issue_count(&self) -> usize {
-        self.pptx.compatibility_issues().len()
+        self.pptx.compatibility_issue_count()
     }
 
     #[must_use]

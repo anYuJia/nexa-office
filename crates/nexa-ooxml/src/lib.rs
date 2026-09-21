@@ -9,6 +9,7 @@
 mod atomic_save;
 mod compare;
 mod content_types;
+mod interop;
 mod limits;
 mod office_package;
 mod package;
@@ -20,6 +21,10 @@ mod zip_package;
 pub use atomic_save::{AtomicSaveError, save_package_atomic};
 pub use compare::{PackageDiff, compare_packages};
 pub use content_types::{ContentTypeMap, ContentTypeRule};
+pub use interop::{
+    CompatibilityFeature, CompatibilityFinding, CompatibilityRisk, InteropReport,
+    audit_package_rewrite_risks,
+};
 pub use limits::{LimitViolation, PackageLimits, PackageUsage};
 pub use office_package::{OfficePackageError, OfficePackageInfo, OfficePackageKind};
 pub use package::{Package, PackageError, Part, RelationshipSet};

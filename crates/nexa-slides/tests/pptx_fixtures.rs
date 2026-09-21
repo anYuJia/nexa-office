@@ -120,3 +120,29 @@ fn deleting_a_slide_rewrites_only_the_active_slide_relationship_sequence() {
             .any(|element| element.text().contains("last"))
     );
 }
+
+#[test]
+fn unicode_text_survives_pptx_round_trip() {
+    let sample = "中文演示 🚀 مرحبا שלום";
+    let mut pptx = PptxPresentation::blank();
+    pptx.presentation_mut()
+        .slide_mut(0)
+        .unwrap()
+        .add_text_box(sample);
+
+    let bytes = save_pptx(&mut pptx, Cursor::new(Vec::new()))
+        .unwrap()
+        .into_inner();
+    let reopened = open_pptx(Cursor::new(bytes)).unwrap();
+
+    assert!(
+        reopened
+            .presentation()
+            .slide(0)
+            .unwrap()
+            .elements
+            .iter()
+            .any(|element| element.text() == sample)
+    );
+    assert!(reopened.can_save());
+}

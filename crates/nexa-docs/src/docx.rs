@@ -5,9 +5,10 @@ use crate::{
     SectionProperties, Style, StyleKind, StyleSheet, Table, TableCell, TableProperties, TableRow,
 };
 use nexa_ooxml::{
-    AtomicSaveError, ContentTypeMap, ContentTypeRule, LazyZipPackage, OfficePackageKind, Package,
-    PackageError, PartName, Relationship, RelationshipId, RelationshipSet, RelationshipTarget,
-    ZipPackageError, save_package_atomic, write_owned_package,
+    AtomicSaveError, ContentTypeMap, ContentTypeRule, InteropReport, LazyZipPackage,
+    OfficePackageKind, Package, PackageError, PartName, Relationship, RelationshipId,
+    RelationshipSet, RelationshipTarget, ZipPackageError, audit_package_rewrite_risks,
+    save_package_atomic, write_owned_package,
 };
 use quick_xml::{
     XmlVersion,
@@ -45,6 +46,7 @@ pub struct DocxDocument {
     document: Document,
     package: Package,
     main_part: PartName,
+    interop_report: InteropReport,
 }
 
 impl DocxDocument {
@@ -116,6 +118,7 @@ impl DocxDocument {
             document: Document::blank(),
             package,
             main_part,
+            interop_report: InteropReport::default(),
         };
         result.sync_package().expect("blank DOCX serialization");
         result
@@ -139,15 +142,28 @@ impl DocxDocument {
         &self.package
     }
 
+    #[must_use]
+    pub fn interop_report(&self) -> &InteropReport {
+        &self.interop_report
+    }
+
+    #[must_use]
+    pub fn can_save(&self) -> bool {
+        self.document.compatibility.can_save() && self.interop_report.can_rewrite_safely()
+    }
+
+    #[must_use]
+    pub fn compatibility_issue_count(&self) -> usize {
+        self.document.compatibility.issues.len() + self.interop_report.blocker_count()
+    }
+
     pub fn into_document(self) -> Document {
         self.document
     }
 
     fn sync_package(&mut self) -> Result<(), DocxError> {
-        if !self.document.compatibility.can_save() {
-            return Err(DocxError::SaveBlocked(
-                self.document.compatibility.issues.len(),
-            ));
+        if !self.can_save() {
+            return Err(DocxError::SaveBlocked(self.compatibility_issue_count()));
         }
 
         self.package
@@ -310,10 +326,13 @@ pub fn open_docx<R: Read + Seek>(reader: R) -> Result<DocxDocument, DocxError> {
         }
     }
 
+    let interop_report = audit_package_rewrite_risks(&package);
+
     Ok(DocxDocument {
         document,
         package,
         main_part,
+        interop_report,
     })
 }
 
