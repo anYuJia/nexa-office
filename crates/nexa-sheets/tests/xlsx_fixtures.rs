@@ -8,9 +8,15 @@ use std::io::Cursor;
 fn values_formula_and_unicode_fixture_round_trip() {
     let mut xlsx = XlsxWorkbook::blank();
     let workbook = xlsx.workbook_mut();
-    workbook.set_cell_input(0, CellAddress::parse_a1("A1").unwrap(), "中文").unwrap();
-    workbook.set_cell_input(0, CellAddress::parse_a1("B1").unwrap(), "12.5").unwrap();
-    workbook.set_cell_input(0, CellAddress::parse_a1("C1").unwrap(), "=B1*2").unwrap();
+    workbook
+        .set_cell_input(0, CellAddress::parse_a1("A1").unwrap(), "中文")
+        .unwrap();
+    workbook
+        .set_cell_input(0, CellAddress::parse_a1("B1").unwrap(), "12.5")
+        .unwrap();
+    workbook
+        .set_cell_input(0, CellAddress::parse_a1("C1").unwrap(), "=B1*2")
+        .unwrap();
 
     let bytes = save_xlsx(&mut xlsx, Cursor::new(Vec::new()))
         .unwrap()
@@ -71,7 +77,10 @@ fn layout_and_format_fixture_round_trip() {
     assert!(format.italic);
     assert_eq!(format.fill_rgb.as_deref(), Some("DDEBFF"));
     assert_eq!(format.alignment, CellAlignment::Center);
-    assert_eq!(sheet.merged_ranges(), &[CellRange::parse_a1("A2:C2").unwrap()]);
+    assert_eq!(
+        sheet.merged_ranges(),
+        &[CellRange::parse_a1("A2:C2").unwrap()]
+    );
     assert_eq!(
         sheet.freeze_pane(),
         Some(FreezePane {
