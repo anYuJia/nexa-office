@@ -187,6 +187,8 @@ Exit criteria:
 
 ## Phase 7 — Native Product Integration
 
+Status: **In progress**.
+
 Planning window: 4-6 weeks.
 
 Scope:
