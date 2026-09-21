@@ -41,6 +41,8 @@ jobs:
           python -m py_compile scripts/release/verify_version.py
           python -m py_compile scripts/ci/long_session_smoke.py
           python scripts/release/verify_version.py 0.1.0
+          python scripts/release/verify_version.py 0.1.0-alpha.1
+          test "$(python scripts/release/verify_version.py --workspace)" = "0.1.0"
 
       - name: Validate package metadata
         shell: python
@@ -144,27 +146,30 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         env:
-          VERSION: "0.1.0"
+          PACKAGE_VERSION: "0.1.0"
+          RELEASE_VERSION: "0.1.0-alpha.1"
         run: bash packaging/linux/package.sh
 
       - name: Build macOS package
         if: runner.os == 'macOS'
         shell: bash
         env:
-          VERSION: "0.1.0"
+          PACKAGE_VERSION: "0.1.0"
+          RELEASE_VERSION: "0.1.0-alpha.1"
         run: bash packaging/macos/package.sh
 
       - name: Build Windows package
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          VERSION: "0.1.0"
+          PACKAGE_VERSION: "0.1.0"
+          RELEASE_VERSION: "0.1.0-alpha.1"
         run: ./packaging/windows/package.ps1
 
       - name: Generate and verify artifact manifest
         shell: bash
         run: |
-          python scripts/release/artifact_manifest.py 0.1.0 target/package
+          python scripts/release/artifact_manifest.py 0.1.0-alpha.1 target/package
           test -s target/package/SHA256SUMS
           test -s target/package/build-metadata.json
           test -s target/package/dependency-inventory.json
