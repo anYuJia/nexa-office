@@ -12,7 +12,7 @@ mod xlsx;
 
 pub use formula::{FormulaError, evaluate_formula};
 pub use model::{
-    Cell, CellAddress, CellAlignment, CellFormat, CellRange, CellValue, FreezePane, ViewportCell,
-    Workbook, WorkbookError, Worksheet, MAX_COLUMNS, MAX_ROWS,
+    Cell, CellAddress, CellAlignment, CellFormat, CellRange, CellValue, FreezePane, MAX_COLUMNS,
+    MAX_ROWS, ViewportCell, Workbook, WorkbookError, Worksheet,
 };
 pub use xlsx::{XlsxError, XlsxWorkbook, open_xlsx, save_xlsx, save_xlsx_atomic};
