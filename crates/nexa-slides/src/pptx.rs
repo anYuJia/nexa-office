@@ -3,9 +3,10 @@ use crate::{
     TableCell, TextBox, TextStyle,
 };
 use nexa_ooxml::{
-    AtomicSaveError, ContentTypeMap, ContentTypeRule, LazyZipPackage, OfficePackageKind, Package,
-    PackageError, PartName, Relationship, RelationshipId, RelationshipSet, RelationshipTarget,
-    ZipPackageError, save_package_atomic, write_owned_package,
+    AtomicSaveError, ContentTypeMap, ContentTypeRule, InteropReport, LazyZipPackage,
+    OfficePackageKind, Package, PackageError, PartName, Relationship, RelationshipId,
+    RelationshipSet, RelationshipTarget, ZipPackageError, audit_package_rewrite_risks,
+    save_package_atomic, write_owned_package,
 };
 use quick_xml::{XmlVersion, events::Event, reader::Reader};
 use std::{
@@ -44,6 +45,7 @@ pub struct PptxPresentation {
     slide_parts: Vec<PartName>,
     slide_relationship_ids: Vec<String>,
     compatibility_issues: Vec<String>,
+    interop_report: InteropReport,
 }
 
 impl PptxPresentation {
@@ -163,6 +165,7 @@ impl PptxPresentation {
             slide_parts: vec![slide_part],
             slide_relationship_ids: vec!["rIdSlide1".into()],
             compatibility_issues: Vec::new(),
+            interop_report: InteropReport::default(),
         };
         result
             .package
@@ -200,13 +203,23 @@ impl PptxPresentation {
     }
 
     #[must_use]
+    pub fn interop_report(&self) -> &InteropReport {
+        &self.interop_report
+    }
+
+    #[must_use]
     pub fn can_save(&self) -> bool {
-        self.compatibility_issues.is_empty()
+        self.compatibility_issues.is_empty() && self.interop_report.can_rewrite_safely()
+    }
+
+    #[must_use]
+    pub fn compatibility_issue_count(&self) -> usize {
+        self.compatibility_issues.len() + self.interop_report.blocker_count()
     }
 
     fn sync_package(&mut self) -> Result<(), PptxError> {
         if !self.can_save() {
-            return Err(PptxError::SaveBlocked(self.compatibility_issues.len()));
+            return Err(PptxError::SaveBlocked(self.compatibility_issue_count()));
         }
         self.ensure_slide_parts()?;
         let active_relationships = &self.slide_relationship_ids[..self.presentation.slides().len()];
@@ -390,6 +403,8 @@ pub fn open_pptx<R: Read + Seek>(reader: R) -> Result<PptxPresentation, PptxErro
     presentation.height_inches = height_inches;
     presentation.set_active_slide(0)?;
 
+    let interop_report = audit_package_rewrite_risks(&package);
+
     Ok(PptxPresentation {
         presentation,
         package,
@@ -397,6 +412,7 @@ pub fn open_pptx<R: Read + Seek>(reader: R) -> Result<PptxPresentation, PptxErro
         slide_parts,
         slide_relationship_ids: slide_ids,
         compatibility_issues,
+        interop_report,
     })
 }
 
