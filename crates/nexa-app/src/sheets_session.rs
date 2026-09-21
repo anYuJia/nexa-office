@@ -146,6 +146,11 @@ impl SheetsSession {
     }
 
     #[must_use]
+    pub const fn active_sheet_index(&self) -> usize {
+        self.active_sheet
+    }
+
+    #[must_use]
     pub fn sheet_name(&self) -> String {
         self.xlsx
             .workbook()
