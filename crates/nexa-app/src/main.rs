@@ -5,7 +5,7 @@ mod platform;
 mod settings_store;
 
 use docs_session::{DocsSession, DocsSessionError};
-use nexa_core::{AppCommand, AppPage, AppSettings, AppState, EditorKind};
+use nexa_core::{AppCommand, AppLanguage, AppPage, AppSettings, AppState, EditorKind};
 use platform::PlatformInfo;
 use std::{
     cell::RefCell,
@@ -439,6 +439,7 @@ fn bind_settings(ui: &AppWindow, state: SharedState, settings_path: Option<PathB
     {
         let state = Rc::clone(&state);
         let ui_weak = ui.as_weak();
+        let settings_path = settings_path.clone();
         ui.on_toggle_compact_navigation(move || {
             let next = !state.borrow().settings().compact_navigation();
             update_state(
@@ -446,6 +447,23 @@ fn bind_settings(ui: &AppWindow, state: SharedState, settings_path: Option<PathB
                 &ui_weak,
                 settings_path.as_deref(),
                 AppCommand::SetCompactNavigation(next),
+            );
+        });
+    }
+
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_set_language(move |value| {
+            let language = match value {
+                1 => AppLanguage::SimplifiedChinese,
+                2 => AppLanguage::English,
+                _ => AppLanguage::System,
+            };
+            update_state(
+                &state,
+                &ui_weak,
+                settings_path.as_deref(),
+                AppCommand::SetLanguage(language),
             );
         });
     }
@@ -521,7 +539,9 @@ fn update_state(
 ) {
     let persist_settings = matches!(
         &command,
-        AppCommand::SetShowStatusBar(_) | AppCommand::SetCompactNavigation(_)
+        AppCommand::SetShowStatusBar(_)
+            | AppCommand::SetCompactNavigation(_)
+            | AppCommand::SetLanguage(_)
     );
 
     let persistence_error = {
@@ -563,20 +583,43 @@ fn sync_ui(state: &AppState, ui: &AppWindow) {
             AppPage::Settings => 2,
         }
     };
+    let language = state.settings().language();
+    let is_chinese = resolved_is_chinese(language);
 
     ui.set_page(page);
-    ui.set_status_text(state.status().into());
+    ui.set_is_chinese(is_chinese);
+    ui.set_language_mode(match language {
+        AppLanguage::System => 0,
+        AppLanguage::SimplifiedChinese => 1,
+        AppLanguage::English => 2,
+    });
+    ui.set_status_text(localize_status(state.status(), is_chinese).into());
     ui.set_show_status_bar(state.settings().show_status_bar());
     ui.set_compact_navigation(state.settings().compact_navigation());
 }
 
 fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
+    let is_chinese = ui.get_is_chinese();
     let Some(session) = session else {
         ui.set_docs_title("Docs".into());
-        ui.set_docs_current_path("No document open".into());
+        ui.set_docs_current_path(
+            if is_chinese {
+                "未打开文档".into()
+            } else {
+                "No document open".into()
+            },
+        );
         ui.set_docs_paragraph_text("".into());
-        ui.set_docs_paragraph_meta("Paragraph 0 of 0".into());
-        ui.set_docs_page_meta("0 pages".into());
+        ui.set_docs_paragraph_meta(
+            if is_chinese {
+                "第 0 段 / 共 0 段".into()
+            } else {
+                "Paragraph 0 of 0".into()
+            },
+        );
+        ui.set_docs_page_meta(
+            if is_chinese { "0 页".into() } else { "0 pages".into() },
+        );
         ui.set_docs_dirty_meta("".into());
         ui.set_docs_compatibility_text("".into());
         ui.set_docs_bold(false);
@@ -594,19 +637,39 @@ fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
     });
     ui.set_docs_paragraph_text(session.current_paragraph_text().into());
     ui.set_docs_paragraph_meta(
-        format!(
-            "Paragraph {} of {}",
-            session.current_paragraph_index() + 1,
-            session.paragraph_count()
-        )
+        if is_chinese {
+            format!(
+                "第 {} 段 / 共 {} 段",
+                session.current_paragraph_index() + 1,
+                session.paragraph_count()
+            )
+        } else {
+            format!(
+                "Paragraph {} of {}",
+                session.current_paragraph_index() + 1,
+                session.paragraph_count()
+            )
+        }
         .into(),
     );
-    ui.set_docs_page_meta(format!("{} page(s)", session.page_count()).into());
-    ui.set_docs_dirty_meta(if session.is_dirty() {
-        "Unsaved changes".into()
-    } else {
-        "Saved".into()
-    });
+    ui.set_docs_page_meta(
+        if is_chinese {
+            format!("{} 页", session.page_count())
+        } else {
+            format!("{} page(s)", session.page_count())
+        }
+        .into(),
+    );
+    ui.set_docs_dirty_meta(
+        if session.is_dirty() {
+            if is_chinese { "有未保存更改" } else { "Unsaved changes" }
+        } else if is_chinese {
+            "已保存"
+        } else {
+            "Saved"
+        }
+        .into(),
+    );
     ui.set_docs_compatibility_text(if session.can_save() {
         "Compatibility check: writable".into()
     } else {
@@ -626,4 +689,87 @@ fn is_docx_path(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| extension.eq_ignore_ascii_case("docx"))
+}
+
+fn resolved_is_chinese(language: AppLanguage) -> bool {
+    match language {
+        AppLanguage::SimplifiedChinese => true,
+        AppLanguage::English => false,
+        AppLanguage::System => system_prefers_chinese(),
+    }
+}
+
+fn system_prefers_chinese() -> bool {
+    ["LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"]
+        .into_iter()
+        .filter_map(|key| std::env::var(key).ok())
+        .any(|value| {
+            let normalized = value.to_ascii_lowercase();
+            normalized.starts_with("zh")
+                || normalized.contains(":zh")
+                || normalized.contains("_zh")
+        })
+}
+
+fn localize_status(status: &str, is_chinese: bool) -> String {
+    if !is_chinese {
+        return status.to_owned();
+    }
+
+    match status {
+        "Native shell ready" => "原生工作区已就绪".to_owned(),
+        "Home" => "首页".to_owned(),
+        "Diagnostics" => "诊断".to_owned(),
+        "Settings" => "设置".to_owned(),
+        "New Docs document" => "已新建文档".to_owned(),
+        "Sheets editor is planned for Phase 4" => "表格编辑器将在 Phase 4 实现".to_owned(),
+        "Slides editor is planned for Phase 5" => "演示编辑器将在 Phase 5 实现".to_owned(),
+        "Status bar shown" => "已显示状态栏".to_owned(),
+        "Status bar hidden" => "已隐藏状态栏".to_owned(),
+        "Compact navigation enabled" => "已启用紧凑导航".to_owned(),
+        "Compact navigation disabled" => "已关闭紧凑导航".to_owned(),
+        "Language preference updated" => "语言设置已更新".to_owned(),
+        "Formatting updated" => "格式已更新".to_owned(),
+        "Undo" => "已撤销".to_owned(),
+        "Redo" => "已重做".to_owned(),
+        "Nothing to undo" => "没有可撤销的操作".to_owned(),
+        "Nothing to redo" => "没有可重做的操作".to_owned(),
+        "Enter text to search" => "请输入要查找的内容".to_owned(),
+        "Enter text to replace" => "请输入要替换的内容".to_owned(),
+        "No Docs document is open" => "当前未打开文档".to_owned(),
+        other if other.starts_with("Editing paragraph ") => {
+            format!("正在编辑第 {} 段", &other["Editing paragraph ".len()..])
+        }
+        other if other.starts_with("Paragraph ") => {
+            format!("第 {} 段", &other["Paragraph ".len()..])
+        }
+        other if other.starts_with("Inserted paragraph ") => {
+            format!("已插入第 {} 段", &other["Inserted paragraph ".len()..])
+        }
+        other if other.starts_with("Editing ") => {
+            format!("正在编辑 {}", &other["Editing ".len()..])
+        }
+        other if other.starts_with("Opened ") => {
+            format!("已打开 {}", &other["Opened ".len()..])
+        }
+        other if other.starts_with("Saved ") => {
+            format!("已保存 {}", &other["Saved ".len()..])
+        }
+        other if other.ends_with(" match(es)") => {
+            format!("找到 {} 处匹配", other.trim_end_matches(" match(es)"))
+        }
+        other if other.starts_with("Replaced ") && other.ends_with(" match(es)") => {
+            let count = other
+                .trim_start_matches("Replaced ")
+                .trim_end_matches(" match(es)");
+            format!("已替换 {count} 处")
+        }
+        other if other.starts_with("Open failed: ") => {
+            format!("打开失败：{}", &other["Open failed: ".len()..])
+        }
+        other if other.starts_with("Docs command failed: ") => {
+            format!("文档操作失败：{}", &other["Docs command failed: ".len()..])
+        }
+        _ => status.to_owned(),
+    }
 }
