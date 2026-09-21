@@ -26,10 +26,12 @@ pub fn choose_open_file() -> io::Result<Option<PathBuf>> {
             "$d.Filter='Office documents (*.docx;*.xlsx;*.pptx)|*.docx;*.xlsx;*.pptx';",
             "if($d.ShowDialog() -eq 'OK'){[Console]::Write($d.FileName)}"
         );
-        return run_path_command(
-            Command::new("powershell")
-                .args(["-NoProfile", "-STA", "-Command", script]),
-        );
+        return run_path_command(Command::new("powershell").args([
+            "-NoProfile",
+            "-STA",
+            "-Command",
+            script,
+        ]));
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -63,10 +65,12 @@ pub fn choose_save_file(extension: &str, suggested_name: &str) -> io::Result<Opt
         let script = format!(
             "Add-Type -AssemblyName System.Windows.Forms;             $d=New-Object System.Windows.Forms.SaveFileDialog;             $d.Filter='Office document (*.{extension})|*.{extension}';             $d.FileName='{escaped}';             if($d.ShowDialog() -eq 'OK'){{[Console]::Write($d.FileName)}}"
         );
-        return run_path_command(
-            Command::new("powershell")
-                .args(["-NoProfile", "-STA", "-Command", &script]),
-        )
+        return run_path_command(Command::new("powershell").args([
+            "-NoProfile",
+            "-STA",
+            "-Command",
+            &script,
+        ]))
         .map(|path| path.map(|path| ensure_extension(path, extension)));
     }
 
@@ -131,10 +135,11 @@ pub fn copy_text(text: &str) -> io::Result<()> {
     #[cfg(target_os = "windows")]
     {
         let escaped = powershell_escape(text);
-        return command_success(
-            Command::new("powershell")
-                .args(["-NoProfile", "-Command", &format!("Set-Clipboard -Value '{escaped}'")]),
-        );
+        return command_success(Command::new("powershell").args([
+            "-NoProfile",
+            "-Command",
+            &format!("Set-Clipboard -Value '{escaped}'"),
+        ]));
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -142,7 +147,10 @@ pub fn copy_text(text: &str) -> io::Result<()> {
         if pipe_text(Command::new("wl-copy"), text).is_ok() {
             return Ok(());
         }
-        return pipe_text(Command::new("xclip").args(["-selection", "clipboard"]), text);
+        return pipe_text(
+            Command::new("xclip").args(["-selection", "clipboard"]),
+            text,
+        );
     }
 
     #[allow(unreachable_code)]
