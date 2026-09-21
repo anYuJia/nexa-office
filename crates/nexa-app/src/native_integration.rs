@@ -5,6 +5,7 @@ use std::{
     process::{Command, Output},
 };
 
+#[cfg(all(unix, not(target_os = "macos")))]
 const OFFICE_FILTER: &str = "*.docx *.xlsx *.pptx";
 
 pub fn choose_open_file() -> io::Result<Option<PathBuf>> {
@@ -180,6 +181,7 @@ fn parse_path_output(output: Output) -> io::Result<Option<PathBuf>> {
     }
 }
 
+#[cfg(unix)]
 fn pipe_text(command: &mut Command, text: &str) -> io::Result<()> {
     use std::io::Write;
     use std::process::Stdio;
@@ -196,6 +198,7 @@ fn pipe_text(command: &mut Command, text: &str) -> io::Result<()> {
     }
 }
 
+#[cfg(target_os = "windows")]
 fn command_success(command: &mut Command) -> io::Result<()> {
     let status = command.status()?;
     if status.success() {
@@ -205,10 +208,12 @@ fn command_success(command: &mut Command) -> io::Result<()> {
     }
 }
 
+#[cfg(any(target_os = "windows", test))]
 fn powershell_escape(value: &str) -> String {
     value.replace('\'', "''")
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn applescript_escape(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
 }
