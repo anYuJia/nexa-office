@@ -167,13 +167,22 @@ impl Default for AppState {
 impl AppState {
     #[must_use]
     pub fn with_settings(settings: AppSettings) -> Self {
-        Self {
+        Self::with_settings_and_recent(settings, Vec::new())
+    }
+
+    #[must_use]
+    pub fn with_settings_and_recent(settings: AppSettings, recent_files: Vec<PathBuf>) -> Self {
+        let mut state = Self {
             page: AppPage::Home,
             active_editor: None,
             settings,
             recent_files: Vec::new(),
             status: "Native shell ready".to_owned(),
+        };
+        for path in recent_files.into_iter().rev() {
+            state.remember_file(path);
         }
+        state
     }
 
     pub fn apply(&mut self, command: AppCommand) {
@@ -372,6 +381,21 @@ mod tests {
         assert_eq!(
             AppSettings::decode("language=unknown\n").language(),
             AppLanguage::System
+        );
+    }
+
+    #[test]
+    fn restored_recent_files_are_deduplicated_and_bounded() {
+        let settings = AppSettings::default();
+        let recent = (0..10)
+            .map(|index| PathBuf::from(format!("/tmp/recent-{index}.docx")))
+            .collect::<Vec<_>>();
+        let state = AppState::with_settings_and_recent(settings, recent);
+
+        assert_eq!(state.recent_files().len(), MAX_RECENT_FILES);
+        assert_eq!(
+            state.recent_files().first(),
+            Some(&PathBuf::from("/tmp/recent-0.docx"))
         );
     }
 
