@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Nexa Office
+Comment=Native lightweight Office suite
+Exec=nexa-office %F
+Icon=nexa-office
+Terminal=false
+Categories=Office;WordProcessor;Spreadsheet;Presentation;
+MimeType=application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.openxmlformats-officedocument.presentationml.presentation;
+StartupNotify=true
+StartupWMClass=Nexa Office
