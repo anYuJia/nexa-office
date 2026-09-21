@@ -31,3 +31,17 @@ Cross-machine package bytes may still differ because platform packaging tools ca
 2. **artifact traceability** — every published binary is tied to its source commit and accompanied by hashes and build metadata.
 
 A future byte-for-byte reproducible packaging initiative may tighten this contract where platform tooling permits it.
+
+
+## Prerelease version mapping
+
+Nexa distinguishes the semantic **release label** from platform package version fields.
+
+For example, the release label `0.1.0-alpha.1` is built from workspace version `0.1.0`:
+
+- artifact names and build metadata use `0.1.0-alpha.1`;
+- Windows MSI product version uses numeric `0.1.0`;
+- macOS bundle/package version uses numeric `0.1.0`;
+- Debian package metadata uses `0.1.0~alpha.1` so the Alpha sorts before stable `0.1.0`.
+
+The release verifier accepts either an exact workspace version or a semantic prerelease whose base is exactly the workspace version. This keeps stable tags strict while allowing Alpha/Beta/RC artifacts without violating platform installer version rules.
