@@ -9,7 +9,6 @@ use nexa_ooxml::{
 };
 use quick_xml::{events::Event, reader::Reader};
 use std::{
-    collections::BTreeMap,
     error::Error,
     fmt,
     io::{Read, Seek, Write},
@@ -30,14 +29,12 @@ const THEME_CONTENT_TYPE: &str = "application/vnd.openxmlformats-officedocument.
 
 const OFFICE_DOCUMENT_REL: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument";
-const SLIDE_REL: &str =
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide";
+const SLIDE_REL: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide";
 const MASTER_REL: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster";
 const LAYOUT_REL: &str =
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout";
-const THEME_REL: &str =
-    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme";
+const THEME_REL: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme";
 
 #[derive(Debug, Clone)]
 pub struct PptxPresentation {
@@ -212,12 +209,11 @@ impl PptxPresentation {
             return Err(PptxError::SaveBlocked(self.compatibility_issues.len()));
         }
         self.ensure_slide_parts()?;
+        let active_relationships =
+            &self.slide_relationship_ids[..self.presentation.slides().len()];
         self.package.replace_part(
             &self.presentation_part,
-            write_presentation_xml(
-                &self.presentation,
-                &self.slide_relationship_ids,
-            ),
+            write_presentation_xml(&self.presentation, active_relationships),
         )?;
         for (index, slide) in self.presentation.slides().iter().enumerate() {
             let part = self
@@ -437,7 +433,8 @@ fn parse_presentation_xml(bytes: &[u8]) -> Result<(Vec<String>, f64, f64), PptxE
                 if name == b"sldId" {
                     for attribute in event.attributes().flatten() {
                         if local_name(attribute.key.as_ref()) == b"id" {
-                            let value = String::from_utf8_lossy(attribute.value.as_ref()).into_owned();
+                            let value =
+                                String::from_utf8_lossy(attribute.value.as_ref()).into_owned();
                             if value.starts_with("rId") {
                                 slide_ids.push(value);
                             }
@@ -475,11 +472,22 @@ fn parse_slide_xml(
     let xml = String::from_utf8_lossy(bytes);
     let mut issues = Vec::new();
     for marker in [
-        "<p:cxnSp", "<p:grpSp", "<p:contentPart", "<p:oleObj", "<p:transition",
-        "<p:timing", "<c:chart", "<a:videoFile", "<a:audioFile",
+        "<p:cxnSp",
+        "<p:grpSp",
+        "<p:contentPart",
+        "<p:oleObj",
+        "<p:transition",
+        "<p:timing",
+        "<c:chart",
+        "<a:videoFile",
+        "<a:audioFile",
     ] {
         if xml.contains(marker) {
-            issues.push(format!("slide {} contains unsupported {}", index + 1, marker));
+            issues.push(format!(
+                "slide {} contains unsupported {}",
+                index + 1,
+                marker
+            ));
         }
     }
 
@@ -604,7 +612,9 @@ fn parse_slide_xml(
                 }
             }
             Ok(Event::Text(event)) if in_text => {
-                let value = event.decode().map_err(|error| PptxError::Xml(error.to_string()))?;
+                let value = event
+                    .decode()
+                    .map_err(|error| PptxError::Xml(error.to_string()))?;
                 if table_depth > 0 {
                     current_cell.push_str(&value);
                 } else {
@@ -648,6 +658,10 @@ fn parse_slide_xml(
                                 relationship_id: image_relationship.clone(),
                                 alt_text: image_alt.clone(),
                             }));
+                            issues.push(format!(
+                                "slide {} contains an image relationship that is preserved read-only",
+                                index + 1
+                            ));
                         } else {
                             issues.push(format!(
                                 "slide {} image relationship could not be resolved",
@@ -676,7 +690,8 @@ fn parse_slide_xml(
                                 cells,
                             }));
                         } else {
-                            issues.push(format!("slide {} has unsupported graphic frame", index + 1));
+                            issues
+                                .push(format!("slide {} has unsupported graphic frame", index + 1));
                         }
                         current_kind = None;
                     }
@@ -761,11 +776,21 @@ fn write_element_xml(id: usize, element: &SlideElement) -> String {
             };
             let fill = value.fill.map_or_else(
                 || "<a:noFill/>".into(),
-                |color| format!("<a:solidFill><a:srgbClr val=\"{}\"/></a:solidFill>", color.to_hex()),
+                |color| {
+                    format!(
+                        "<a:solidFill><a:srgbClr val=\"{}\"/></a:solidFill>",
+                        color.to_hex()
+                    )
+                },
             );
             let line = value.line.map_or_else(
                 || "<a:ln><a:noFill/></a:ln>".into(),
-                |color| format!("<a:ln><a:solidFill><a:srgbClr val=\"{}\"/></a:solidFill></a:ln>", color.to_hex()),
+                |color| {
+                    format!(
+                        "<a:ln><a:solidFill><a:srgbClr val=\"{}\"/></a:solidFill></a:ln>",
+                        color.to_hex()
+                    )
+                },
             );
             format!(
                 r#"<p:sp><p:nvSpPr><p:cNvPr id="{id}" name="Shape {id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{cx}" cy="{cy}"/></a:xfrm><a:prstGeom prst="{preset}"><a:avLst/></a:prstGeom>{fill}{line}</p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" sz="{}"/><a:t>{}</a:t></a:r><a:endParaRPr/></a:p></p:txBody></p:sp>"#,
@@ -938,8 +963,18 @@ mod tests {
 
         assert_eq!(reopened.presentation().slides().len(), 1);
         let slide = reopened.presentation().slide(0).unwrap();
-        assert!(slide.elements.iter().any(|element| element.text().contains("Nexa Slides")));
-        assert!(slide.elements.iter().any(|element| element.text().contains("42")));
+        assert!(
+            slide
+                .elements
+                .iter()
+                .any(|element| element.text().contains("Nexa Slides"))
+        );
+        assert!(
+            slide
+                .elements
+                .iter()
+                .any(|element| element.text().contains("42"))
+        );
     }
 
     #[test]
