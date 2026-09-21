@@ -19,7 +19,12 @@ def sha256(path: Path) -> str:
 
 
 def command_output(*args: str) -> str:
-    return subprocess.check_output(args, text=True).strip()
+    return subprocess.check_output(
+        args,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    ).strip()
 
 
 def main() -> int:
