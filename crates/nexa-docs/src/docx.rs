@@ -453,7 +453,12 @@ fn parse_word_xml(
 
                 match name.as_str() {
                     "body" | "hyperlink" | "smartTag" | "sdt" | "sdtContent" => {}
-                    "p" => paragraph = Some(Paragraph::default()),
+                    "p" => {
+                        paragraph = Some(Paragraph {
+                            runs: Vec::new(),
+                            properties: ParagraphProperties::default(),
+                        });
+                    }
                     "pPr" => in_ppr = true,
                     "r" => run = Some(RunBuilder::default()),
                     "rPr" => in_rpr = true,
@@ -1810,27 +1815,24 @@ mod tests {
     #[test]
     fn unknown_destructive_construct_blocks_save() {
         let mut blank = DocxDocument::blank();
-        let mut bytes = save_docx(&mut blank, Cursor::new(Vec::new()))
+        let malicious = br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body><w:bookmarkStart w:id="0" w:name="keep-me"/><w:p><w:r><w:t>Text</w:t></w:r></w:p></w:body>
+</w:document>"#;
+        blank
+            .package
+            .replace_part(&blank.main_part, malicious.to_vec())
+            .unwrap();
+
+        let bytes = write_owned_package(&blank.package, Cursor::new(Vec::new()))
             .unwrap()
             .into_inner();
-        let needle = b"<w:p>";
-        let replacement = b"<w:bookmarkStart/><w:p>";
-        if let Some(position) = bytes
-            .windows(needle.len())
-            .position(|window| window == needle)
-        {
-            bytes.splice(
-                position..position + needle.len(),
-                replacement.iter().copied(),
-            );
-        }
+        let mut opened = open_docx(Cursor::new(bytes)).unwrap();
 
-        if let Ok(mut opened) = open_docx(Cursor::new(bytes)) {
-            assert!(!opened.document().compatibility.can_save());
-            assert!(matches!(
-                save_docx(&mut opened, Cursor::new(Vec::new())),
-                Err(DocxError::SaveBlocked(_))
-            ));
-        }
+        assert!(!opened.document().compatibility.can_save());
+        assert!(matches!(
+            save_docx(&mut opened, Cursor::new(Vec::new())),
+            Err(DocxError::SaveBlocked(_))
+        ));
     }
 }
