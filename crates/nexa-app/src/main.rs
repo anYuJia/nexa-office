@@ -1593,6 +1593,7 @@ fn sync_ui(state: &AppState, ui: &AppWindow) {
                 .unwrap_or("Office file")
                 .into(),
             path: path.to_string_lossy().into_owned().into(),
+            kind: office_file_kind(path).into(),
         })
         .collect::<Vec<_>>();
     ui.set_recent_files(Rc::new(slint::VecModel::from(recent)).into());
@@ -1920,6 +1921,20 @@ fn sheet_row_from_values(
         c7: cells[7].clone().into(),
         c8: cells[8].clone().into(),
         c9: cells[9].clone().into(),
+    }
+}
+
+fn office_file_kind(path: &Path) -> &'static str {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("docx") => "DOCX",
+        Some("xlsx") => "XLSX",
+        Some("pptx") => "PPTX",
+        _ => "FILE",
     }
 }
 
