@@ -1,5 +1,5 @@
 use crate::{
-    AbstractList, Alignment, Block, CellProperties, CompatibilityReport, Document, HeaderFooter,
+    AbstractList, Alignment, Block, CompatibilityReport, Document, HeaderFooter,
     InlineImage, ListFormat, ListLevel, ListReference, Numbering, NumberingInstance, Orientation,
     PageMargins, Paragraph, ParagraphProperties, RgbColor, Run, RunContent, RunProperties, Section,
     SectionProperties, Style, StyleKind, StyleSheet, Table, TableCell, TableProperties, TableRow,
@@ -859,15 +859,13 @@ fn parse_word_xml(
             Event::Text(text) => {
                 if in_text {
                     if let Some(run) = &mut run {
-                        let decoded = text
-                            .xml_content()
-                            .map_err(|error| DocxError::Xml(error.to_string()))?;
+                        let decoded = text.xml_content(XmlVersion::Implicit1_0);
                         run.contents.push(RunContent::Text(decoded.into_owned()));
                     }
                 }
             }
             Event::End(element) => {
-                let name = String::from_utf8_lossy(element.local_name().as_ref()).into_owned();
+                let name = element.local_name().as_ref().to_owned();
                 match name.as_str() {
                     "t" | "instrText" => in_text = false,
                     "rPr" => in_rpr = false,
@@ -1111,7 +1109,7 @@ fn parse_styles_xml(input: &[u8]) -> Result<StyleSheet, DocxError> {
                 _ => {}
             },
             Event::End(element) => {
-                match String::from_utf8_lossy(element.local_name().as_ref()).as_ref() {
+                match element.local_name().as_ref() {
                     "pPr" => in_ppr = false,
                     "rPr" => in_rpr = false,
                     "style" => {
@@ -1214,7 +1212,7 @@ fn parse_numbering_xml(input: &[u8]) -> Result<Numbering, DocxError> {
                 _ => {}
             },
             Event::End(element) => {
-                match String::from_utf8_lossy(element.local_name().as_ref()).as_ref() {
+                match element.local_name().as_ref() {
                     "lvl" => {
                         if let (Some(list), Some(level)) = (&mut abstract_list, level.take()) {
                             list.levels.insert(level.level, level);
@@ -1290,12 +1288,12 @@ fn bool_on(element: &BytesStart<'_>) -> bool {
 }
 
 fn local_name(element: &BytesStart<'_>) -> String {
-    String::from_utf8_lossy(element.local_name().as_ref()).into_owned()
+    element.local_name().as_ref().to_owned()
 }
 
 fn attr(element: &BytesStart<'_>, name: &str) -> Option<String> {
     for attribute in element.attributes().flatten() {
-        if attribute.key.local_name().as_ref() == name.as_bytes() {
+        if attribute.key.local_name().as_ref() == name {
             if let Ok(value) = attribute.normalized_value(XmlVersion::Implicit1_0) {
                 return Some(value.into_owned());
             }
@@ -1730,6 +1728,7 @@ fn escape_attribute(output: &mut String, value: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::CellProperties;
     use std::io::Cursor;
 
     #[test]

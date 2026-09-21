@@ -19,7 +19,7 @@ pub use layout::{DocumentLayout, LayoutBlock, LayoutConfig, PageLayout, Paginato
 pub use model::{
     AbstractList, Alignment, Block, CellProperties, CompatibilityIssue, CompatibilityReport,
     CompatibilitySeverity, Document, HeaderFooter, InlineImage, ListFormat, ListLevel,
-    ListReference, Numbering, NumberingInstance, Orientation, PageMargins, Paragraph,
+    ListReference, ModelError, Numbering, NumberingInstance, Orientation, PageMargins, Paragraph,
     ParagraphProperties, RgbColor, Run, RunContent, RunProperties, Section, SectionProperties,
     Style, StyleKind, StyleSheet, Table, TableCell, TableProperties, TableRow,
 };
