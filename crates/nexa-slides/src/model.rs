@@ -372,7 +372,9 @@ impl fmt::Display for PresentationError {
         match self {
             Self::MissingSlide(index) => write!(f, "slide {index} does not exist"),
             Self::MissingElement(index) => write!(f, "slide element {index} does not exist"),
-            Self::CannotDeleteLastSlide => f.write_str("a presentation must contain at least one slide"),
+            Self::CannotDeleteLastSlide => {
+                f.write_str("a presentation must contain at least one slide")
+            }
             Self::InvalidTableSize { rows, columns } => {
                 write!(f, "invalid table size: {rows}×{columns}")
             }
