@@ -317,15 +317,13 @@ fn normalize_runs(runs: Vec<Run>) -> Vec<Run> {
         if matches!(&run.content, RunContent::Text(text) if text.is_empty()) && !output.is_empty() {
             continue;
         }
-        if let Some(previous) = output.last_mut() {
-            if previous.properties == run.properties {
-                if let (RunContent::Text(left), RunContent::Text(right)) =
-                    (&mut previous.content, &run.content)
-                {
-                    left.push_str(right);
-                    continue;
-                }
-            }
+        if let Some(previous) = output.last_mut()
+            && previous.properties == run.properties
+            && let (RunContent::Text(left), RunContent::Text(right)) =
+                (&mut previous.content, &run.content)
+        {
+            left.push_str(right);
+            continue;
         }
         output.push(run);
     }

@@ -139,11 +139,9 @@ impl Paginator {
             };
 
             let usable_for_lines = available.saturating_sub(before).saturating_sub(after);
-            let mut lines_fit = if measurement.line_height_twips == 0 {
-                remaining_lines
-            } else {
-                usable_for_lines / measurement.line_height_twips
-            };
+            let mut lines_fit = usable_for_lines
+                .checked_div(measurement.line_height_twips)
+                .unwrap_or(remaining_lines);
 
             if lines_fit == 0 {
                 if page.used_height_twips > 0 {

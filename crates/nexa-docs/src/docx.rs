@@ -857,11 +857,9 @@ fn parse_word_xml(
                 }
             }
             Event::Text(text) => {
-                if in_text {
-                    if let Some(run) = &mut run {
-                        let decoded = text.xml_content(XmlVersion::Implicit1_0);
-                        run.contents.push(RunContent::Text(decoded.into_owned()));
-                    }
+                if in_text && let Some(run) = &mut run {
+                    let decoded = text.xml_content(XmlVersion::Implicit1_0);
+                    run.contents.push(RunContent::Text(decoded.into_owned()));
                 }
             }
             Event::End(element) => {
@@ -885,22 +883,22 @@ fn parse_word_xml(
                         }
                     }
                     "tc" => {
-                        if let Some(table) = table_stack.last_mut() {
-                            if let Some(mut cell) = table.current_cell.take() {
-                                if cell.blocks.is_empty() {
-                                    cell.blocks.push(Block::Paragraph(Paragraph::default()));
-                                }
-                                if let Some(row) = table.current_row.as_mut() {
-                                    row.cells.push(cell);
-                                }
+                        if let Some(table) = table_stack.last_mut()
+                            && let Some(mut cell) = table.current_cell.take()
+                        {
+                            if cell.blocks.is_empty() {
+                                cell.blocks.push(Block::Paragraph(Paragraph::default()));
+                            }
+                            if let Some(row) = table.current_row.as_mut() {
+                                row.cells.push(cell);
                             }
                         }
                     }
                     "tr" => {
-                        if let Some(table) = table_stack.last_mut() {
-                            if let Some(row) = table.current_row.take() {
-                                table.rows.push(row);
-                            }
+                        if let Some(table) = table_stack.last_mut()
+                            && let Some(row) = table.current_row.take()
+                        {
+                            table.rows.push(row);
                         }
                     }
                     "tbl" => {
@@ -1113,10 +1111,10 @@ fn parse_styles_xml(input: &[u8]) -> Result<StyleSheet, DocxError> {
                 "rPr" => in_rpr = false,
                 "style" => {
                     if let Some(style) = current.take() {
-                        if style.id == "Normal" || sheet.default_paragraph_style.is_none() {
-                            if style.kind == StyleKind::Paragraph {
-                                sheet.default_paragraph_style = Some(style.id.clone());
-                            }
+                        if (style.id == "Normal" || sheet.default_paragraph_style.is_none())
+                            && style.kind == StyleKind::Paragraph
+                        {
+                            sheet.default_paragraph_style = Some(style.id.clone());
                         }
                         sheet.styles.insert(style.id.clone(), style);
                     }
@@ -1289,10 +1287,10 @@ fn local_name(element: &BytesStart<'_>) -> String {
 
 fn attr(element: &BytesStart<'_>, name: &str) -> Option<String> {
     for attribute in element.attributes().flatten() {
-        if attribute.key.local_name().as_ref() == name {
-            if let Ok(value) = attribute.normalized_value(XmlVersion::Implicit1_0) {
-                return Some(value.into_owned());
-            }
+        if attribute.key.local_name().as_ref() == name
+            && let Ok(value) = attribute.normalized_value(XmlVersion::Implicit1_0)
+        {
+            return Some(value.into_owned());
         }
     }
     None
