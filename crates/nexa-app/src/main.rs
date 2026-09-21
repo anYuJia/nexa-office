@@ -92,9 +92,9 @@ fn main() -> Result<(), slint::PlatformError> {
             );
         }
     } else {
-        let recovered = recovery_directory
-            .as_deref()
-            .is_some_and(|root| restore_latest_recovery(root, &state, &docs, &sheets, &slides, &ui));
+        let recovered = recovery_directory.as_deref().is_some_and(|root| {
+            restore_latest_recovery(root, &state, &docs, &sheets, &slides, &ui)
+        });
         if !recovered {
             sync_ui(&state.borrow(), &ui);
             sync_docs_ui(docs.borrow().as_ref(), &ui);
@@ -1104,7 +1104,10 @@ fn path_from_drop_text(value: &str) -> Option<PathBuf> {
         .unwrap_or(first)
         .replace("%20", " ")
         .replace("%23", "#");
-    let path = if cfg!(target_os = "windows") && decoded.starts_with('/') && decoded.as_bytes().get(2) == Some(&b':') {
+    let path = if cfg!(target_os = "windows")
+        && decoded.starts_with('/')
+        && decoded.as_bytes().get(2) == Some(&b':')
+    {
         PathBuf::from(&decoded[1..])
     } else {
         PathBuf::from(decoded)
@@ -1972,7 +1975,9 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
         "File path copied" => "已复制文件路径".to_owned(),
         "No saved file path to copy" => "当前没有可复制的已保存文件路径".to_owned(),
         "Unsupported Office file type" => "不支持的 Office 文件类型".to_owned(),
-        "Dropped data does not contain an Office file path" => "拖入的数据中没有可打开的 Office 文件路径".to_owned(),
+        "Dropped data does not contain an Office file path" => {
+            "拖入的数据中没有可打开的 Office 文件路径".to_owned()
+        }
         "Home" => "首页".to_owned(),
         "Diagnostics" => "诊断".to_owned(),
         "Settings" => "设置".to_owned(),
