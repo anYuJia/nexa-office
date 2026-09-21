@@ -1,0 +1,136 @@
+name: Release Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the leading v
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: linux
+          - os: macos-latest
+            artifact_name: macos
+          - os: windows-latest
+            artifact_name: windows
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Verify workspace version
+        shell: bash
+        run: python scripts/release/verify_version.py "${{ steps.version.outputs.value }}"
+
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y
+          libfontconfig-dev
+          libx11-xcb-dev
+          libx11-dev
+          libxcb-shape0-dev
+          libxcb-xfixes0-dev
+          libxcursor-dev
+          libxkbcommon-dev
+          libxkbcommon-x11-dev
+
+      - name: Install WiX CLI
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: dotnet tool install --global wix
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build Linux packages
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: bash packaging/linux/package.sh
+
+      - name: Build macOS packages
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: bash packaging/macos/package.sh
+
+      - name: Build Windows packages
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: ./packaging/windows/package.ps1
+
+      - name: Generate traceability metadata
+        shell: bash
+        run: python scripts/release/artifact_manifest.py "${{ steps.version.outputs.value }}" target/package
+
+      - name: Upload platform artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexa-office-${{ steps.version.outputs.value }}-${{ matrix.artifact_name }}
+          path: |
+            target/package/*.deb
+            target/package/*.tar.gz
+            target/package/*.pkg
+            target/package/*.zip
+            target/package/*.msi
+            target/package/SHA256SUMS
+            target/package/build-metadata.json
+            target/package/dependency-inventory.json
+          if-no-files-found: error
+
+  publish:
+    name: Publish tagged release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Collect assets
+        shell: bash
+        run: |
+          mkdir release-assets
+          find dist -type f \( -name '*.deb' -o -name '*.tar.gz' -o -name '*.pkg' -o -name '*.zip' -o -name '*.msi' -o -name 'SHA256SUMS' -o -name 'build-metadata.json' -o -name 'dependency-inventory.json' \) -print0 |
+            while IFS= read -r -d '' file; do
+              parent="$(basename "$(dirname "$file")")"
+              cp "$file" "release-assets/${parent}-$(basename "$file")"
+            done
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" release-assets/*             --repo "${GITHUB_REPOSITORY}"             --title "Nexa Office ${GITHUB_REF_NAME}"             --generate-notes
