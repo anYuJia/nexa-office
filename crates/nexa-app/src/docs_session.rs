@@ -1,5 +1,5 @@
 use nexa_docs::{
-    DocxDocument, DocxError, DocsEditor, EditError, Paginator, SearchOptions, Selection,
+    DocsEditor, DocxDocument, DocxError, EditError, Paginator, SearchOptions, Selection,
     TextPosition, open_docx, save_docx_atomic,
 };
 use std::{
@@ -145,7 +145,9 @@ impl DocsSession {
 
     #[must_use]
     pub fn page_count(&self) -> usize {
-        Paginator::default().layout(self.editor.document()).page_count()
+        Paginator::default()
+            .layout(self.editor.document())
+            .page_count()
     }
 
     #[must_use]
@@ -356,8 +358,7 @@ fn validate_docx_path(path: &Path) -> Result<(), DocsSessionError> {
 mod tests {
     use super::*;
     use std::{
-        fs,
-        process,
+        fs, process,
         time::{SystemTime, UNIX_EPOCH},
     };
 

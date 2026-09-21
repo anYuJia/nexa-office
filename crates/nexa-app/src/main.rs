@@ -313,12 +313,7 @@ fn bind_docs_actions(ui: &AppWindow, state: SharedState, docs: SharedDocs) {
         });
     }
 
-    bind_format_action(
-        ui,
-        Rc::clone(&state),
-        Rc::clone(&docs),
-        FormatAction::Bold,
-    );
+    bind_format_action(ui, Rc::clone(&state), Rc::clone(&docs), FormatAction::Bold);
     bind_format_action(
         ui,
         Rc::clone(&state),
@@ -402,12 +397,7 @@ enum FormatAction {
     Underline,
 }
 
-fn bind_format_action(
-    ui: &AppWindow,
-    state: SharedState,
-    docs: SharedDocs,
-    action: FormatAction,
-) {
+fn bind_format_action(ui: &AppWindow, state: SharedState, docs: SharedDocs, action: FormatAction) {
     let bind = move |ui_weak: slint::Weak<AppWindow>| {
         let state = Rc::clone(&state);
         let docs = Rc::clone(&docs);
@@ -597,13 +587,11 @@ fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
     };
 
     ui.set_docs_title(session.title().into());
-    ui.set_docs_current_path(
-        if session.path_text().is_empty() {
-            "Not saved yet".into()
-        } else {
-            session.path_text().into()
-        },
-    );
+    ui.set_docs_current_path(if session.path_text().is_empty() {
+        "Not saved yet".into()
+    } else {
+        session.path_text().into()
+    });
     ui.set_docs_paragraph_text(session.current_paragraph_text().into());
     ui.set_docs_paragraph_meta(
         format!(
@@ -619,17 +607,15 @@ fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
     } else {
         "Saved".into()
     });
-    ui.set_docs_compatibility_text(
-        if session.can_save() {
-            "Compatibility check: writable".into()
-        } else {
-            format!(
-                "Save blocked · {} unsupported construct(s)",
-                session.compatibility_issue_count()
-            )
-            .into()
-        },
-    );
+    ui.set_docs_compatibility_text(if session.can_save() {
+        "Compatibility check: writable".into()
+    } else {
+        format!(
+            "Save blocked · {} unsupported construct(s)",
+            session.compatibility_issue_count()
+        )
+        .into()
+    });
     ui.set_docs_bold(session.current_bold());
     ui.set_docs_italic(session.current_italic());
     ui.set_docs_underline(session.current_underline());
