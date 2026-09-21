@@ -4,7 +4,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PACKAGE_VERSION="${PACKAGE_VERSION:-${VERSION:-0.1.0}}"
 RELEASE_VERSION="${RELEASE_VERSION:-$PACKAGE_VERSION}"
-DEB_VERSION="${DEB_VERSION:-${RELEASE_VERSION/-/~}}"
+if [[ -n "${DEB_VERSION:-}" ]]; then
+  :
+elif [[ "$RELEASE_VERSION" == *-* ]]; then
+  DEB_VERSION="${RELEASE_VERSION%%-*}~${RELEASE_VERSION#*-}"
+else
+  DEB_VERSION="$RELEASE_VERSION"
+fi
 HOST_ARCH="${ARCH:-$(uname -m)}"
 
 case "$HOST_ARCH" in
