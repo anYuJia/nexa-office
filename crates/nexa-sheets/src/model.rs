@@ -37,7 +37,9 @@ impl CellAddress {
         }
 
         let (letters, digits) = value.split_at(split);
-        if !letters.chars().all(|character| character.is_ascii_alphabetic())
+        if !letters
+            .chars()
+            .all(|character| character.is_ascii_alphabetic())
             || !digits.chars().all(|character| character.is_ascii_digit())
         {
             return Err(WorkbookError::InvalidAddress(value));
@@ -48,9 +50,7 @@ impl CellAddress {
             column = column
                 .checked_mul(26)
                 .and_then(|value| {
-                    value.checked_add(
-                        u32::from(character.to_ascii_uppercase() - b'A') + 1,
-                    )
+                    value.checked_add(u32::from(character.to_ascii_uppercase() - b'A') + 1)
                 })
                 .ok_or_else(|| WorkbookError::InvalidAddress(value.clone()))?;
         }
@@ -75,7 +75,11 @@ impl CellAddress {
             column = (column - 1) / 26;
         }
         letters.reverse();
-        format!("{}{}", letters.into_iter().collect::<String>(), self.row + 1)
+        format!(
+            "{}{}",
+            letters.into_iter().collect::<String>(),
+            self.row + 1
+        )
     }
 }
 
@@ -576,11 +580,7 @@ impl Worksheet {
                         CellValue::Text(value) | CellValue::Error(value) => value.capacity(),
                         _ => 0,
                     }
-                    + cell
-                        .format
-                        .fill_rgb
-                        .as_ref()
-                        .map_or(0, String::capacity)
+                    + cell.format.fill_rgb.as_ref().map_or(0, String::capacity)
             })
             .sum::<usize>();
         self.name.capacity()
@@ -721,15 +721,22 @@ impl fmt::Display for WorkbookError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::AddressOutOfRange { row, column } => {
-                write!(f, "cell address outside XLSX bounds: row={row}, column={column}")
+                write!(
+                    f,
+                    "cell address outside XLSX bounds: row={row}, column={column}"
+                )
             }
             Self::InvalidAddress(value) => write!(f, "invalid A1 cell address: {value}"),
             Self::InvalidSheetName(value) => write!(f, "invalid worksheet name: {value}"),
             Self::DuplicateSheetName(value) => write!(f, "duplicate worksheet name: {value}"),
             Self::MissingSheet(index) => write!(f, "worksheet index does not exist: {index}"),
             Self::NoSheets => f.write_str("workbook must contain at least one worksheet"),
-            Self::OverlappingMerge(value) => write!(f, "merged range overlaps an existing merge: {value}"),
-            Self::SortColumnOutsideRange => f.write_str("sort key column is outside the selected range"),
+            Self::OverlappingMerge(value) => {
+                write!(f, "merged range overlaps an existing merge: {value}")
+            }
+            Self::SortColumnOutsideRange => {
+                f.write_str("sort key column is outside the selected range")
+            }
             Self::FilterColumnOutsideRange => {
                 f.write_str("filter column is outside the selected range")
             }
@@ -742,7 +749,9 @@ impl Error for WorkbookError {}
 fn validate_sheet_name(name: &str) -> Result<(), WorkbookError> {
     if name.is_empty()
         || name.chars().count() > 31
-        || name.chars().any(|character| matches!(character, ':' | '\\' | '/' | '?' | '*' | '[' | ']'))
+        || name
+            .chars()
+            .any(|character| matches!(character, ':' | '\\' | '/' | '?' | '*' | '[' | ']'))
         || name.starts_with('\'')
         || name.ends_with('\'')
     {
@@ -843,14 +852,8 @@ mod tests {
     fn filter_and_sort_operate_on_sparse_rows() {
         let mut sheet = Worksheet::new("Data").unwrap();
         for (row, name, score) in [(2, "b", 2), (3, "a", 3), (4, "c", 1)] {
-            sheet.set_input(
-                CellAddress::new(row - 1, 0).unwrap(),
-                name,
-            );
-            sheet.set_input(
-                CellAddress::new(row - 1, 1).unwrap(),
-                &score.to_string(),
-            );
+            sheet.set_input(CellAddress::new(row - 1, 0).unwrap(), name);
+            sheet.set_input(CellAddress::new(row - 1, 1).unwrap(), &score.to_string());
         }
         let range = CellRange::parse_a1("A1:B4").unwrap();
         sheet.sort_rows(range, 1, true).unwrap();
