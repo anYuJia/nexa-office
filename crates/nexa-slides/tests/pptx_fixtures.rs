@@ -55,8 +55,10 @@ fn generated_presentation_edits_save_and_reopen() {
 #[test]
 fn large_slide_deck_does_not_materialize_extra_ui_state() {
     let mut pptx = PptxPresentation::blank();
-    for index in 1..500 {
-        pptx.presentation_mut().add_slide();
+    for index in 0..500 {
+        if index > 0 {
+            pptx.presentation_mut().add_slide();
+        }
         pptx.presentation_mut()
             .slide_mut(index)
             .unwrap()
