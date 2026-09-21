@@ -143,7 +143,6 @@ pub enum CellValue {
     Error(String),
 }
 
-
 impl CellValue {
     #[must_use]
     pub fn display_text(&self) -> String {
