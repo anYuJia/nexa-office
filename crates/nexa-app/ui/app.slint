@@ -1828,9 +1828,9 @@ export component AppWindow inherits Window {
 
                             Rectangle {
                                 width: parent.width > 880px ? 800px : parent.width - 36px;
-                                height: width * 0.5625;
-                                y: (parent.height - height) / 2;
-                                x: (parent.width - width) / 2;
+                                height: self.width * 0.5625;
+                                y: (parent.height - self.height) / 2;
+                                x: (parent.width - self.width) / 2;
                                 background: #ffffff;
                                 border-color: #d0d5dd;
                                 border-width: 1px;
