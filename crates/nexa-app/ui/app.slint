@@ -1391,16 +1391,16 @@ export component AppWindow inherits Window {
                                     width: 48px;
                                     label: "";
                                 }
-                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c0; }
-                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c1; }
-                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c2; }
-                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c3; }
-                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c4; }
-                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c5; }
-                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c6; }
-                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c7; }
-                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c8; }
-                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c9; }
+                                SheetHeaderCell { width: 76px; label: root.sheets-header.c0; }
+                                SheetHeaderCell { width: 76px; label: root.sheets-header.c1; }
+                                SheetHeaderCell { width: 76px; label: root.sheets-header.c2; }
+                                SheetHeaderCell { width: 76px; label: root.sheets-header.c3; }
+                                SheetHeaderCell { width: 76px; label: root.sheets-header.c4; }
+                                SheetHeaderCell { width: 76px; label: root.sheets-header.c5; }
+                                SheetHeaderCell { width: 76px; label: root.sheets-header.c6; }
+                                SheetHeaderCell { width: 76px; label: root.sheets-header.c7; }
+                                SheetHeaderCell { width: 76px; label: root.sheets-header.c8; }
+                                SheetHeaderCell { width: 76px; label: root.sheets-header.c9; }
                             }
 
                             for row in root.sheets-rows : HorizontalLayout {
@@ -1412,7 +1412,7 @@ export component AppWindow inherits Window {
                                     label: row.row-label;
                                 }
                                 SheetGridCell {
-                                    width: root.width < 1050px ? 72px : 92px;
+                                    width: 76px;
                                     value: row.c0;
                                     active: row.row-index == root.sheets-active-row
                                         && root.sheets-viewport-column == root.sheets-active-column;
@@ -1420,7 +1420,7 @@ export component AppWindow inherits Window {
                                     activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column); }
                                 }
                                 SheetGridCell {
-                                    width: root.width < 1050px ? 72px : 92px;
+                                    width: 76px;
                                     value: row.c1;
                                     active: row.row-index == root.sheets-active-row
                                         && root.sheets-viewport-column + 1 == root.sheets-active-column;
@@ -1428,7 +1428,7 @@ export component AppWindow inherits Window {
                                     activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 1); }
                                 }
                                 SheetGridCell {
-                                    width: root.width < 1050px ? 72px : 92px;
+                                    width: 76px;
                                     value: row.c2;
                                     active: row.row-index == root.sheets-active-row
                                         && root.sheets-viewport-column + 2 == root.sheets-active-column;
@@ -1436,7 +1436,7 @@ export component AppWindow inherits Window {
                                     activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 2); }
                                 }
                                 SheetGridCell {
-                                    width: root.width < 1050px ? 72px : 92px;
+                                    width: 76px;
                                     value: row.c3;
                                     active: row.row-index == root.sheets-active-row
                                         && root.sheets-viewport-column + 3 == root.sheets-active-column;
@@ -1444,7 +1444,7 @@ export component AppWindow inherits Window {
                                     activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 3); }
                                 }
                                 SheetGridCell {
-                                    width: root.width < 1050px ? 72px : 92px;
+                                    width: 76px;
                                     value: row.c4;
                                     active: row.row-index == root.sheets-active-row
                                         && root.sheets-viewport-column + 4 == root.sheets-active-column;
@@ -1452,7 +1452,7 @@ export component AppWindow inherits Window {
                                     activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 4); }
                                 }
                                 SheetGridCell {
-                                    width: root.width < 1050px ? 72px : 92px;
+                                    width: 76px;
                                     value: row.c5;
                                     active: row.row-index == root.sheets-active-row
                                         && root.sheets-viewport-column + 5 == root.sheets-active-column;
@@ -1460,7 +1460,7 @@ export component AppWindow inherits Window {
                                     activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 5); }
                                 }
                                 SheetGridCell {
-                                    width: root.width < 1050px ? 72px : 92px;
+                                    width: 76px;
                                     value: row.c6;
                                     active: row.row-index == root.sheets-active-row
                                         && root.sheets-viewport-column + 6 == root.sheets-active-column;
@@ -1468,7 +1468,7 @@ export component AppWindow inherits Window {
                                     activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 6); }
                                 }
                                 SheetGridCell {
-                                    width: root.width < 1050px ? 72px : 92px;
+                                    width: 76px;
                                     value: row.c7;
                                     active: row.row-index == root.sheets-active-row
                                         && root.sheets-viewport-column + 7 == root.sheets-active-column;
@@ -1476,7 +1476,7 @@ export component AppWindow inherits Window {
                                     activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 7); }
                                 }
                                 SheetGridCell {
-                                    width: root.width < 1050px ? 72px : 92px;
+                                    width: 76px;
                                     value: row.c8;
                                     active: row.row-index == root.sheets-active-row
                                         && root.sheets-viewport-column + 8 == root.sheets-active-column;
@@ -1484,7 +1484,7 @@ export component AppWindow inherits Window {
                                     activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 8); }
                                 }
                                 SheetGridCell {
-                                    width: root.width < 1050px ? 72px : 92px;
+                                    width: 76px;
                                     value: row.c9;
                                     active: row.row-index == root.sheets-active-row
                                         && root.sheets-viewport-column + 9 == root.sheets-active-column;
@@ -1555,7 +1555,7 @@ export component AppWindow inherits Window {
                             spacing: 6px;
 
                             LineEdit {
-                                width: root.width < 1000px ? 150px : 220px;
+                                width: 160px;
                                 text <=> root.sheets-path-input;
                                 placeholder-text: root.is-chinese ? "输入 .xlsx 文件路径" : "Enter a .xlsx file path";
                                 accepted(path) => { root.sheets-open-path(path); }
@@ -1575,7 +1575,7 @@ export component AppWindow inherits Window {
                             Rectangle { width: 1px; background: #e4e7ec; }
 
                             LineEdit {
-                                width: root.width < 1000px ? 110px : 160px;
+                                width: 120px;
                                 text <=> root.sheets-filter-input;
                                 placeholder-text: root.is-chinese ? "筛选当前列" : "Filter current column";
                             }
@@ -1593,7 +1593,7 @@ export component AppWindow inherits Window {
                             Rectangle { horizontal-stretch: 1; background: transparent; }
 
                             Text {
-                                width: root.width < 1000px ? 130px : 220px;
+                                width: 140px;
                                 text: root.sheets-compatibility-text;
                                 color: root.sheets-can-save ? #027a48 : #b42318;
                                 font-size: 9px;
