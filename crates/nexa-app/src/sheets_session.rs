@@ -1,6 +1,6 @@
 use nexa_sheets::{
-    CellAddress, CellFormat, FreezePane, WorkbookError, XlsxError, XlsxWorkbook,
-    open_xlsx, save_xlsx_atomic,
+    CellAddress, CellFormat, FreezePane, WorkbookError, XlsxError, XlsxWorkbook, open_xlsx,
+    save_xlsx_atomic,
 };
 use std::{
     array,
