@@ -133,8 +133,9 @@ impl CellRange {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum CellValue {
+    #[default]
     Empty,
     Number(f64),
     Text(String),
@@ -142,11 +143,6 @@ pub enum CellValue {
     Error(String),
 }
 
-impl Default for CellValue {
-    fn default() -> Self {
-        Self::Empty
-    }
-}
 
 impl CellValue {
     #[must_use]
@@ -571,8 +567,8 @@ impl Worksheet {
     pub fn estimated_bytes(&self) -> usize {
         let cell_bytes = self
             .cells
-            .iter()
-            .map(|(_, cell)| {
+            .values()
+            .map(|cell| {
                 std::mem::size_of::<CellAddress>()
                     + std::mem::size_of::<Cell>()
                     + cell.formula.as_ref().map_or(0, String::capacity)
