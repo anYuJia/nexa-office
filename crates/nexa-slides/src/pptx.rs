@@ -1,5 +1,5 @@
 use crate::{
-    Image, Presentation, PresentationError, Rect, RgbColor, Shape, ShapeKind, Slide, SlideElement,
+    Image, Presentation, PresentationError, Rect, Shape, ShapeKind, Slide, SlideElement,
     Table, TableCell, TextBox, TextStyle,
 };
 use nexa_ooxml::{
@@ -429,23 +429,23 @@ fn parse_presentation_xml(bytes: &[u8]) -> Result<(Vec<String>, f64, f64), PptxE
             Ok(Event::Start(event)) | Ok(Event::Empty(event)) => {
                 let event_name = event.name();
                 let name = local_name(event_name.as_ref());
-                if name == b"sldId" {
+                if name == "sldId" {
                     for attribute in event.attributes().flatten() {
-                        if local_name(attribute.key.as_ref()) == b"id" {
+                        if local_name(attribute.key.as_ref()) == "id" {
                             let value =
-                                String::from_utf8_lossy(attribute.value.as_ref()).into_owned();
+                                attribute.value.as_ref().to_owned();
                             if value.starts_with("rId") {
                                 slide_ids.push(value);
                             }
                         }
                     }
-                } else if name == b"sldSz" {
+                } else if name == "sldSz" {
                     let mut cx = None;
                     let mut cy = None;
                     for attribute in event.attributes().flatten() {
                         match local_name(attribute.key.as_ref()) {
-                            b"cx" => cx = parse_f64(attribute.value.as_ref()),
-                            b"cy" => cy = parse_f64(attribute.value.as_ref()),
+                            "cx" => cx = parse_f64(attribute.value.as_ref()),
+                            "cy" => cy = parse_f64(attribute.value.as_ref()),
                             _ => {}
                         }
                     }
@@ -525,29 +525,29 @@ fn parse_slide_xml(
                 let event_name = event.name();
                 let name = local_name(event_name.as_ref());
                 match name {
-                    b"sp" => {
+                    "sp" => {
                         current_kind = Some("shape");
                         text.clear();
                         bounds = Rect::default();
                         shape_kind = ShapeKind::Rectangle;
                     }
-                    b"pic" => {
+                    "pic" => {
                         current_kind = Some("image");
                         bounds = Rect::default();
                         image_relationship.clear();
                         image_alt.clear();
                     }
-                    b"graphicFrame" => {
+                    "graphicFrame" => {
                         current_kind = Some("table");
                         table_depth = 0;
                         table_rows.clear();
                         bounds = Rect::default();
                     }
-                    b"tbl" if current_kind == Some("table") => table_depth += 1,
-                    b"tr" if table_depth > 0 => current_row.clear(),
-                    b"tc" if table_depth > 0 => current_cell.clear(),
-                    b"t" => in_text = true,
-                    b"off" => {
+                    "tbl" if current_kind == Some("table") => table_depth += 1,
+                    "tr" if table_depth > 0 => current_row.clear(),
+                    "tc" if table_depth > 0 => current_cell.clear(),
+                    "t" => in_text = true,
+                    "off" => {
                         let (x, y) = parse_xy(&event);
                         if let Some(x) = x {
                             bounds.x = x / EMU_PER_INCH;
@@ -556,7 +556,7 @@ fn parse_slide_xml(
                             bounds.y = y / EMU_PER_INCH;
                         }
                     }
-                    b"ext" => {
+                    "ext" => {
                         let (cx, cy) = parse_cxcy(&event);
                         if let Some(cx) = cx {
                             bounds.width = cx / EMU_PER_INCH;
@@ -565,31 +565,31 @@ fn parse_slide_xml(
                             bounds.height = cy / EMU_PER_INCH;
                         }
                     }
-                    b"prstGeom" => {
+                    "prstGeom" => {
                         for attribute in event.attributes().flatten() {
-                            if local_name(attribute.key.as_ref()) == b"prst" {
+                            if local_name(attribute.key.as_ref()) == "prst" {
                                 shape_kind = match attribute.value.as_ref() {
-                                    b"roundRect" => ShapeKind::RoundedRectangle,
-                                    b"ellipse" => ShapeKind::Ellipse,
-                                    b"line" => ShapeKind::Line,
+                                    "roundRect" => ShapeKind::RoundedRectangle,
+                                    "ellipse" => ShapeKind::Ellipse,
+                                    "line" => ShapeKind::Line,
                                     _ => ShapeKind::Rectangle,
                                 };
                             }
                         }
                     }
-                    b"blip" => {
+                    "blip" => {
                         for attribute in event.attributes().flatten() {
-                            if local_name(attribute.key.as_ref()) == b"embed" {
+                            if local_name(attribute.key.as_ref()) == "embed" {
                                 image_relationship =
-                                    String::from_utf8_lossy(attribute.value.as_ref()).into_owned();
+                                    attribute.value.as_ref().to_owned();
                             }
                         }
                     }
-                    b"cNvPr" if current_kind == Some("image") => {
+                    "cNvPr" if current_kind == Some("image") => {
                         for attribute in event.attributes().flatten() {
-                            if local_name(attribute.key.as_ref()) == b"descr" {
+                            if local_name(attribute.key.as_ref()) == "descr" {
                                 image_alt =
-                                    String::from_utf8_lossy(attribute.value.as_ref()).into_owned();
+                                    attribute.value.as_ref().to_owned();
                             }
                         }
                     }
@@ -599,7 +599,7 @@ fn parse_slide_xml(
             Ok(Event::Empty(event)) => {
                 let event_name = event.name();
                 let name = local_name(event_name.as_ref());
-                if name == b"off" {
+                if name == "off" {
                     let (x, y) = parse_xy(&event);
                     if let Some(x) = x {
                         bounds.x = x / EMU_PER_INCH;
@@ -607,7 +607,7 @@ fn parse_slide_xml(
                     if let Some(y) = y {
                         bounds.y = y / EMU_PER_INCH;
                     }
-                } else if name == b"ext" {
+                } else if name == "ext" {
                     let (cx, cy) = parse_cxcy(&event);
                     if let Some(cx) = cx {
                         bounds.width = cx / EMU_PER_INCH;
@@ -615,19 +615,17 @@ fn parse_slide_xml(
                     if let Some(cy) = cy {
                         bounds.height = cy / EMU_PER_INCH;
                     }
-                } else if name == b"blip" {
+                } else if name == "blip" {
                     for attribute in event.attributes().flatten() {
-                        if local_name(attribute.key.as_ref()) == b"embed" {
+                        if local_name(attribute.key.as_ref()) == "embed" {
                             image_relationship =
-                                String::from_utf8_lossy(attribute.value.as_ref()).into_owned();
+                                attribute.value.as_ref().to_owned();
                         }
                     }
                 }
             }
             Ok(Event::Text(event)) if in_text => {
-                let value = event
-                    .decode()
-                    .map_err(|error| PptxError::Xml(error.to_string()))?;
+                let value = event.xml_content(XmlVersion::Implicit1_0).into_owned();
                 if table_depth > 0 {
                     current_cell.push_str(&value);
                 } else {
@@ -638,11 +636,11 @@ fn parse_slide_xml(
                 let event_name = event.name();
                 let name = local_name(event_name.as_ref());
                 match name {
-                    b"t" => in_text = false,
-                    b"tc" if table_depth > 0 => current_row.push(current_cell.clone()),
-                    b"tr" if table_depth > 0 => table_rows.push(current_row.clone()),
-                    b"tbl" if table_depth > 0 => table_depth = table_depth.saturating_sub(1),
-                    b"sp" if current_kind == Some("shape") => {
+                    "t" => in_text = false,
+                    "tc" if table_depth > 0 => current_row.push(current_cell.clone()),
+                    "tr" if table_depth > 0 => table_rows.push(current_row.clone()),
+                    "tbl" if table_depth > 0 => table_depth = table_depth.saturating_sub(1),
+                    "sp" if current_kind == Some("shape") => {
                         let is_text_only = xml.contains("<p:txBody") && text.len() > 0;
                         if is_text_only && shape_kind == ShapeKind::Rectangle {
                             slide.elements.push(SlideElement::TextBox(TextBox {
@@ -662,7 +660,7 @@ fn parse_slide_xml(
                         }
                         current_kind = None;
                     }
-                    b"pic" if current_kind == Some("image") => {
+                    "pic" if current_kind == Some("image") => {
                         if !image_relationship.is_empty()
                             && relationship_target(relationships, &image_relationship).is_some()
                         {
@@ -683,7 +681,7 @@ fn parse_slide_xml(
                         }
                         current_kind = None;
                     }
-                    b"graphicFrame" if current_kind == Some("table") => {
+                    "graphicFrame" if current_kind == Some("table") => {
                         if !table_rows.is_empty() {
                             let rows = table_rows.len();
                             let columns = table_rows.iter().map(Vec::len).max().unwrap_or(1);
@@ -908,8 +906,8 @@ fn parse_xy(event: &quick_xml::events::BytesStart<'_>) -> (Option<f64>, Option<f
     let mut y = None;
     for attribute in event.attributes().flatten() {
         match local_name(attribute.key.as_ref()) {
-            b"x" => x = parse_f64(attribute.value.as_ref()),
-            b"y" => y = parse_f64(attribute.value.as_ref()),
+            "x" => x = parse_f64(attribute.value.as_ref()),
+            "y" => y = parse_f64(attribute.value.as_ref()),
             _ => {}
         }
     }
@@ -921,20 +919,20 @@ fn parse_cxcy(event: &quick_xml::events::BytesStart<'_>) -> (Option<f64>, Option
     let mut cy = None;
     for attribute in event.attributes().flatten() {
         match local_name(attribute.key.as_ref()) {
-            b"cx" => cx = parse_f64(attribute.value.as_ref()),
-            b"cy" => cy = parse_f64(attribute.value.as_ref()),
+            "cx" => cx = parse_f64(attribute.value.as_ref()),
+            "cy" => cy = parse_f64(attribute.value.as_ref()),
             _ => {}
         }
     }
     (cx, cy)
 }
 
-fn parse_f64(bytes: &[u8]) -> Option<f64> {
-    std::str::from_utf8(bytes).ok()?.parse().ok()
+fn parse_f64(value: &str) -> Option<f64> {
+    value.parse().ok()
 }
 
-fn local_name(name: &[u8]) -> &[u8] {
-    name.rsplit(|byte| *byte == b':').next().unwrap_or(name)
+fn local_name(name: &str) -> &str {
+    name.rsplit(':').next().unwrap_or(name)
 }
 
 fn rect_emu(rect: Rect) -> (u64, u64, u64, u64) {
