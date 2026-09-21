@@ -300,10 +300,73 @@ component MetricRow inherits Rectangle {
     }
 }
 
+export struct SheetRow {
+    row-index: int,
+    row-label: string,
+    c0: string,
+    c1: string,
+    c2: string,
+    c3: string,
+    c4: string,
+    c5: string,
+    c6: string,
+    c7: string,
+    c8: string,
+    c9: string,
+}
+
+component SheetHeaderCell inherits Rectangle {
+    in property <string> label;
+
+    height: 28px;
+    background: #f7f8fa;
+    border-color: #e4e7ec;
+    border-width: 1px;
+
+    Text {
+        text: root.label;
+        color: #667085;
+        font-size: 10px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}
+
+component SheetGridCell inherits Rectangle {
+    in property <string> value;
+    in property <bool> active;
+    in property <string> accessible-name;
+    callback activated();
+
+    height: 28px;
+    background: root.active ? #eef4ff : #ffffff;
+    border-color: root.active ? #3974db : #e8eaed;
+    border-width: root.active ? 2px : 1px;
+    accessible-role: button;
+    accessible-label: root.accessible-name;
+    accessible-action-default => { root.activated(); }
+
+    Text {
+        x: 7px;
+        width: parent.width - 14px;
+        text: root.value;
+        color: #1d2939;
+        font-size: 11px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    TouchArea {
+        clicked => { root.activated(); }
+    }
+}
+
 export component AppWindow inherits Window {
     title: root.page == 3
         ? root.docs-title + " — Nexa Office"
-        : "Nexa Office";
+        : (root.page == 4 ? root.sheets-title + " — Nexa Office" : "Nexa Office");
     preferred-width: 1240px;
     preferred-height: 800px;
     min-width: 840px;
@@ -338,6 +401,24 @@ export component AppWindow inherits Window {
     in property <bool> docs-underline: false;
     in property <bool> docs-can-save: false;
 
+    in-out property <string> sheets-path-input: "";
+    in-out property <string> sheets-filter-input: "";
+    in-out property <string> sheets-address-input: "A1";
+    in-out property <string> sheets-cell-input: "";
+    in property <string> sheets-title: "Sheets";
+    in property <string> sheets-current-path: "";
+    in property <string> sheets-dirty-meta: "";
+    in property <string> sheets-compatibility-text: "";
+    in property <string> sheets-sheet-name: "";
+    in property <bool> sheets-bold: false;
+    in property <bool> sheets-italic: false;
+    in property <bool> sheets-can-save: false;
+    in property <int> sheets-active-row: 0;
+    in property <int> sheets-active-column: 0;
+    in property <int> sheets-viewport-column: 0;
+    in property <SheetRow> sheets-header;
+    in property <[SheetRow]> sheets-rows;
+
     private property <bool> nav-compact:
         root.compact-navigation || root.width < 1100px;
     private property <bool> dense-docs: root.width < 1040px;
@@ -368,6 +449,23 @@ export component AppWindow inherits Window {
     callback docs-search(string);
     callback docs-replace-all(string, string);
 
+    callback sheets-open-path(string);
+    callback sheets-save();
+    callback sheets-save-as(string);
+    callback sheets-select-cell(int, int);
+    callback sheets-select-address(string);
+    callback sheets-edit-cell(string);
+    callback sheets-toggle-bold();
+    callback sheets-toggle-italic();
+    callback sheets-toggle-fill();
+    callback sheets-scroll(int, int);
+    callback sheets-sort(bool);
+    callback sheets-filter(string);
+    callback sheets-clear-filter();
+    callback sheets-freeze-row();
+    callback sheets-freeze-column();
+    callback sheets-add-sheet();
+
     MenuBar {
         Menu {
             title: root.is-chinese ? "文件" : "File";
@@ -379,10 +477,22 @@ export component AppWindow inherits Window {
             }
 
             MenuItem {
+                title: root.is-chinese ? "新建表格" : "New Spreadsheet";
+                activated => { root.create-sheets(); }
+            }
+
+            MenuItem {
                 title: root.is-chinese ? "保存" : "Save";
                 shortcut: @keys(Control + S);
-                enabled: root.page == 3 && root.docs-can-save;
-                activated => { root.docs-save(); }
+                enabled: (root.page == 3 && root.docs-can-save)
+                    || (root.page == 4 && root.sheets-can-save);
+                activated => {
+                    if (root.page == 3) {
+                        root.docs-save();
+                    } else if (root.page == 4) {
+                        root.sheets-save();
+                    }
+                }
             }
         }
 
@@ -524,6 +634,14 @@ export component AppWindow inherits Window {
                     activated => { root.show-docs(); }
                 }
 
+                NavItem {
+                    glyph: "S";
+                    label: root.is-chinese ? "表格" : "Sheets";
+                    compact: root.nav-compact;
+                    active: root.page == 4;
+                    activated => { root.create-sheets(); }
+                }
+
                 Rectangle { height: 14px; background: transparent; }
 
                 if !root.nav-compact : Text {
@@ -634,7 +752,7 @@ export component AppWindow inherits Window {
                             subtitle: root.is-chinese
                                 ? "XLSX · 稀疏工作簿与虚拟化视口"
                                 : "XLSX · sparse workbook and virtualized viewport";
-                            meta: "Phase 4";
+                            meta: root.is-chinese ? "可用" : "Ready";
                             activated => { root.create-sheets(); }
                         }
 
@@ -667,7 +785,7 @@ export component AppWindow inherits Window {
                         Rectangle { horizontal-stretch: 1; background: transparent; }
 
                         Text {
-                            text: root.is-chinese ? "Phase 3 已完成" : "Phase 3 complete";
+                            text: root.is-chinese ? "Docs + Sheets 可用" : "Docs + Sheets ready";
                             color: #667085;
                             font-size: 10px;
                             vertical-alignment: center;
@@ -1139,6 +1257,349 @@ export component AppWindow inherits Window {
                                         edited(text) => { root.docs-edit-paragraph(text); }
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if root.page == 4 : Rectangle {
+                vertical-stretch: 1;
+                background: #f4f6f8;
+
+                VerticalLayout {
+                    spacing: 0px;
+
+                    Rectangle {
+                        height: 56px;
+                        background: #ffffff;
+                        border-color: #eaecf0;
+                        border-width: 1px;
+
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 12px;
+
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                spacing: 1px;
+
+                                Rectangle { vertical-stretch: 1; background: transparent; }
+
+                                Text {
+                                    text: root.sheets-title;
+                                    color: #101828;
+                                    font-size: 15px;
+                                    font-weight: 680;
+                                    overflow: elide;
+                                }
+
+                                Text {
+                                    text: root.sheets-current-path;
+                                    color: #98a2b3;
+                                    font-size: 9px;
+                                    overflow: elide;
+                                }
+
+                                Rectangle { vertical-stretch: 1; background: transparent; }
+                            }
+
+                            Text {
+                                text: root.sheets-dirty-meta;
+                                color: root.sheets-dirty-meta == "Saved"
+                                    || root.sheets-dirty-meta == "已保存"
+                                    ? #667085 : #b54708;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                            }
+
+                            ToolButton {
+                                label: root.is-chinese ? "保存" : "Save";
+                                enabled: root.sheets-can-save;
+                                activated => { root.sheets-save(); }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 44px;
+                        background: #fbfcfd;
+                        border-color: #eaecf0;
+                        border-width: 1px;
+
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            padding-top: 5px;
+                            padding-bottom: 5px;
+                            spacing: 6px;
+
+                            LineEdit {
+                                width: 82px;
+                                text <=> root.sheets-address-input;
+                                placeholder-text: "A1";
+                                accepted(address) => { root.sheets-select-address(address); }
+                            }
+
+                            LineEdit {
+                                horizontal-stretch: 1;
+                                text <=> root.sheets-cell-input;
+                                placeholder-text: root.is-chinese
+                                    ? "输入值或公式，例如 =SUM(A1:A3)"
+                                    : "Value or formula, e.g. =SUM(A1:A3)";
+                                accepted(value) => { root.sheets-edit-cell(value); }
+                            }
+
+                            ToolButton {
+                                label: "B";
+                                accessible-name: root.is-chinese ? "粗体" : "Bold";
+                                active: root.sheets-bold;
+                                activated => { root.sheets-toggle-bold(); }
+                            }
+
+                            ToolButton {
+                                label: "I";
+                                accessible-name: root.is-chinese ? "斜体" : "Italic";
+                                active: root.sheets-italic;
+                                activated => { root.sheets-toggle-italic(); }
+                            }
+
+                            ToolButton {
+                                label: "▧";
+                                accessible-name: root.is-chinese ? "切换单元格底色" : "Toggle cell fill";
+                                activated => { root.sheets-toggle-fill(); }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        vertical-stretch: 1;
+                        background: #ffffff;
+                        clip: true;
+                        accessible-role: region;
+                        accessible-label: root.is-chinese ? "表格网格" : "Spreadsheet grid";
+
+                        VerticalLayout {
+                            spacing: 0px;
+
+                            HorizontalLayout {
+                                height: 28px;
+                                spacing: 0px;
+
+                                SheetHeaderCell {
+                                    width: 48px;
+                                    label: "";
+                                }
+                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c0; }
+                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c1; }
+                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c2; }
+                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c3; }
+                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c4; }
+                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c5; }
+                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c6; }
+                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c7; }
+                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c8; }
+                                SheetHeaderCell { width: root.width < 1050px ? 72px : 92px; label: root.sheets-header.c9; }
+                            }
+
+                            for row in root.sheets-rows : HorizontalLayout {
+                                height: 28px;
+                                spacing: 0px;
+
+                                SheetHeaderCell {
+                                    width: 48px;
+                                    label: row.row-label;
+                                }
+                                SheetGridCell {
+                                    width: root.width < 1050px ? 72px : 92px;
+                                    value: row.c0;
+                                    active: row.row-index == root.sheets-active-row
+                                        && root.sheets-viewport-column == root.sheets-active-column;
+                                    accessible-name: root.sheets-header.c0 + row.row-label;
+                                    activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column); }
+                                }
+                                SheetGridCell {
+                                    width: root.width < 1050px ? 72px : 92px;
+                                    value: row.c1;
+                                    active: row.row-index == root.sheets-active-row
+                                        && root.sheets-viewport-column + 1 == root.sheets-active-column;
+                                    accessible-name: root.sheets-header.c1 + row.row-label;
+                                    activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 1); }
+                                }
+                                SheetGridCell {
+                                    width: root.width < 1050px ? 72px : 92px;
+                                    value: row.c2;
+                                    active: row.row-index == root.sheets-active-row
+                                        && root.sheets-viewport-column + 2 == root.sheets-active-column;
+                                    accessible-name: root.sheets-header.c2 + row.row-label;
+                                    activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 2); }
+                                }
+                                SheetGridCell {
+                                    width: root.width < 1050px ? 72px : 92px;
+                                    value: row.c3;
+                                    active: row.row-index == root.sheets-active-row
+                                        && root.sheets-viewport-column + 3 == root.sheets-active-column;
+                                    accessible-name: root.sheets-header.c3 + row.row-label;
+                                    activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 3); }
+                                }
+                                SheetGridCell {
+                                    width: root.width < 1050px ? 72px : 92px;
+                                    value: row.c4;
+                                    active: row.row-index == root.sheets-active-row
+                                        && root.sheets-viewport-column + 4 == root.sheets-active-column;
+                                    accessible-name: root.sheets-header.c4 + row.row-label;
+                                    activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 4); }
+                                }
+                                SheetGridCell {
+                                    width: root.width < 1050px ? 72px : 92px;
+                                    value: row.c5;
+                                    active: row.row-index == root.sheets-active-row
+                                        && root.sheets-viewport-column + 5 == root.sheets-active-column;
+                                    accessible-name: root.sheets-header.c5 + row.row-label;
+                                    activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 5); }
+                                }
+                                SheetGridCell {
+                                    width: root.width < 1050px ? 72px : 92px;
+                                    value: row.c6;
+                                    active: row.row-index == root.sheets-active-row
+                                        && root.sheets-viewport-column + 6 == root.sheets-active-column;
+                                    accessible-name: root.sheets-header.c6 + row.row-label;
+                                    activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 6); }
+                                }
+                                SheetGridCell {
+                                    width: root.width < 1050px ? 72px : 92px;
+                                    value: row.c7;
+                                    active: row.row-index == root.sheets-active-row
+                                        && root.sheets-viewport-column + 7 == root.sheets-active-column;
+                                    accessible-name: root.sheets-header.c7 + row.row-label;
+                                    activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 7); }
+                                }
+                                SheetGridCell {
+                                    width: root.width < 1050px ? 72px : 92px;
+                                    value: row.c8;
+                                    active: row.row-index == root.sheets-active-row
+                                        && root.sheets-viewport-column + 8 == root.sheets-active-column;
+                                    accessible-name: root.sheets-header.c8 + row.row-label;
+                                    activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 8); }
+                                }
+                                SheetGridCell {
+                                    width: root.width < 1050px ? 72px : 92px;
+                                    value: row.c9;
+                                    active: row.row-index == root.sheets-active-row
+                                        && root.sheets-viewport-column + 9 == root.sheets-active-column;
+                                    accessible-name: root.sheets-header.c9 + row.row-label;
+                                    activated => { root.sheets-select-cell(row.row-index, root.sheets-viewport-column + 9); }
+                                }
+                            }
+
+                            Rectangle { vertical-stretch: 1; background: #ffffff; }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 42px;
+                        background: #fbfcfd;
+                        border-color: #eaecf0;
+                        border-width: 1px;
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            padding-top: 4px;
+                            padding-bottom: 4px;
+                            spacing: 5px;
+
+                            ToolButton { label: "←"; accessible-name: root.is-chinese ? "向左滚动列" : "Scroll columns left"; quiet: true; activated => { root.sheets-scroll(0, -5); } }
+                            ToolButton { label: "→"; accessible-name: root.is-chinese ? "向右滚动列" : "Scroll columns right"; quiet: true; activated => { root.sheets-scroll(0, 5); } }
+                            ToolButton { label: "↑"; accessible-name: root.is-chinese ? "向上滚动行" : "Scroll rows up"; quiet: true; activated => { root.sheets-scroll(-10, 0); } }
+                            ToolButton { label: "↓"; accessible-name: root.is-chinese ? "向下滚动行" : "Scroll rows down"; quiet: true; activated => { root.sheets-scroll(10, 0); } }
+
+                            Rectangle { width: 1px; background: #e4e7ec; }
+
+                            Text {
+                                text: root.sheets-sheet-name;
+                                color: #344054;
+                                font-size: 11px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+
+                            ToolButton {
+                                label: "+";
+                                accessible-name: root.is-chinese ? "新增工作表" : "Add worksheet";
+                                quiet: true;
+                                activated => { root.sheets-add-sheet(); }
+                            }
+
+                            Rectangle { horizontal-stretch: 1; background: transparent; }
+
+                            ToolButton { label: "A↑"; accessible-name: root.is-chinese ? "按当前列升序" : "Sort ascending"; quiet: true; activated => { root.sheets-sort(true); } }
+                            ToolButton { label: "A↓"; accessible-name: root.is-chinese ? "按当前列降序" : "Sort descending"; quiet: true; activated => { root.sheets-sort(false); } }
+                            ToolButton { label: root.is-chinese ? "冻结行" : "Freeze row"; quiet: true; activated => { root.sheets-freeze-row(); } }
+                            ToolButton { label: root.is-chinese ? "冻结列" : "Freeze col"; quiet: true; activated => { root.sheets-freeze-column(); } }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 42px;
+                        background: #ffffff;
+                        border-color: #eaecf0;
+                        border-width: 1px;
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            padding-top: 4px;
+                            padding-bottom: 4px;
+                            spacing: 6px;
+
+                            LineEdit {
+                                width: root.width < 1000px ? 150px : 220px;
+                                text <=> root.sheets-path-input;
+                                placeholder-text: root.is-chinese ? "输入 .xlsx 文件路径" : "Enter a .xlsx file path";
+                                accepted(path) => { root.sheets-open-path(path); }
+                            }
+
+                            ToolButton {
+                                label: root.is-chinese ? "打开" : "Open";
+                                activated => { root.sheets-open-path(root.sheets-path-input); }
+                            }
+
+                            ToolButton {
+                                label: root.is-chinese ? "另存为" : "Save As";
+                                enabled: root.sheets-can-save;
+                                activated => { root.sheets-save-as(root.sheets-path-input); }
+                            }
+
+                            Rectangle { width: 1px; background: #e4e7ec; }
+
+                            LineEdit {
+                                width: root.width < 1000px ? 110px : 160px;
+                                text <=> root.sheets-filter-input;
+                                placeholder-text: root.is-chinese ? "筛选当前列" : "Filter current column";
+                            }
+
+                            ToolButton {
+                                label: root.is-chinese ? "筛选" : "Filter";
+                                activated => { root.sheets-filter(root.sheets-filter-input); }
+                            }
+
+                            ToolButton {
+                                label: root.is-chinese ? "清除" : "Clear";
+                                activated => { root.sheets-clear-filter(); }
+                            }
+
+                            Rectangle { horizontal-stretch: 1; background: transparent; }
+
+                            Text {
+                                width: root.width < 1000px ? 130px : 220px;
+                                text: root.sheets-compatibility-text;
+                                color: root.sheets-can-save ? #027a48 : #b42318;
+                                font-size: 9px;
+                                vertical-alignment: center;
+                                horizontal-alignment: right;
+                                overflow: elide;
                             }
                         }
                     }
