@@ -106,6 +106,8 @@ Exit criteria:
 
 ## Phase 4 — Nexa Sheets MVP
 
+Status: **Completed**.
+
 Planning window: 6-10 weeks.
 
 Scope:
