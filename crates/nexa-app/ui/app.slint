@@ -97,7 +97,7 @@ component LaunchRow inherits Rectangle {
     in property <bool> primary: false;
     callback activated();
 
-    height: 82px;
+    height: 72px;
     background: transparent;
     border-color: #eaecf0;
     border-width: 0px;
@@ -108,7 +108,7 @@ component LaunchRow inherits Rectangle {
 
     Rectangle {
         x: 0px;
-        y: 13px;
+        y: 9px;
         width: 54px;
         height: 54px;
         border-radius: 14px;
@@ -126,9 +126,9 @@ component LaunchRow inherits Rectangle {
 
     VerticalLayout {
         x: 72px;
-        y: 15px;
+        y: 10px;
         width: parent.width - 190px;
-        height: 52px;
+        height: 50px;
         spacing: 4px;
 
         Text {
@@ -523,6 +523,7 @@ export component AppWindow inherits Window {
     private property <bool> nav-compact: root.compact-navigation;
     private property <bool> dense-workspace: root.compact-navigation || root.width < 1080px;
     private property <bool> dense-docs: root.dense-workspace;
+    private property <bool> compact-home: root.height < 700px;
 
     callback create-docs();
     callback create-sheets();
@@ -860,27 +861,41 @@ export component AppWindow inherits Window {
                 VerticalLayout {
                     padding-left: root.nav-compact ? 30px : 56px;
                     padding-right: root.nav-compact ? 30px : 56px;
-                    padding-top: root.nav-compact ? 40px : 48px;
-                    padding-bottom: 32px;
-                    spacing: 26px;
+                    padding-top: root.compact-home ? 24px : (root.nav-compact ? 40px : 48px);
+                    padding-bottom: root.compact-home ? 20px : 32px;
+                    spacing: root.compact-home ? 14px : 22px;
 
-                    VerticalLayout {
-                        height: 100px;
-                        spacing: 8px;
+                    HorizontalLayout {
+                        height: root.compact-home ? 64px : 84px;
+                        spacing: 18px;
 
-                        Text {
-                            text: root.is-chinese ? "今天想处理什么？" : "What are you working on?";
-                            color: #101828;
-                            font-size: 30px;
-                            font-weight: 720;
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: root.compact-home ? 4px : 8px;
+
+                            Text {
+                                text: root.is-chinese ? "今天想处理什么？" : "What are you working on?";
+                                color: #101828;
+                                font-size: root.compact-home ? 24px : 30px;
+                                font-weight: 720;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: root.is-chinese
+                                    ? "原生 Rust 办公套件，不依赖浏览器内核。"
+                                    : "A native Rust office suite without a browser engine.";
+                                color: #667085;
+                                font-size: 13px;
+                                vertical-alignment: center;
+                            }
                         }
 
-                        Text {
-                            text: root.is-chinese
-                                ? "原生 Rust 办公套件，不依赖浏览器内核。"
-                                : "A native Rust office suite without a browser engine.";
-                            color: #667085;
-                            font-size: 13px;
+                        ToolButton {
+                            width: root.is-chinese ? 118px : 108px;
+                            label: root.is-chinese ? "打开文件" : "Open file";
+                            accessible-name: root.is-chinese ? "打开 Office 文件" : "Open Office file";
+                            activated => { root.native-open(); }
                         }
                     }
 
@@ -891,26 +906,6 @@ export component AppWindow inherits Window {
 
                     VerticalLayout {
                         spacing: 0px;
-
-                        Text {
-                            height: 30px;
-                            text: root.is-chinese ? "打开" : "OPEN";
-                            color: #98a2b3;
-                            font-size: 10px;
-                            font-weight: 650;
-                            vertical-alignment: center;
-                        }
-
-                        LaunchRow {
-                            glyph: "O";
-                            title: root.is-chinese ? "打开 Office 文件" : "Open Office file";
-                            subtitle: root.is-chinese
-                                ? "从系统文件选择器打开 DOCX、XLSX 或 PPTX"
-                                : "Choose a DOCX, XLSX or PPTX file with the native file picker";
-                            meta: "Ctrl+O";
-                            primary: true;
-                            activated => { root.native-open(); }
-                        }
 
                         Text {
                             height: 30px;
@@ -953,7 +948,7 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    VerticalLayout {
+                    if !root.compact-home : VerticalLayout {
                         spacing: 0px;
 
                         Text {
