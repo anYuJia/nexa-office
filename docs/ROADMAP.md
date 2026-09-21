@@ -217,6 +217,8 @@ Exit criteria:
 
 ## Phase 8 — Alpha / Beta / 1.0 Hardening
 
+Status: **In progress**.
+
 No fixed duration.
 
 Alpha requires:
