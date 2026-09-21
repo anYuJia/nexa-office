@@ -4,6 +4,7 @@ members = [
     "crates/nexa-core",
     "crates/nexa-docs",
     "crates/nexa-ooxml",
+    "crates/nexa-sheets",
 ]
 resolver = "3"
 

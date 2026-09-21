@@ -1,0 +1,83 @@
+name: Sheets Performance Smoke
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sheets-performance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  sheets-performance:
+    name: Linux sparse workbook smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install measurement dependency
+        run: sudo apt-get update && sudo apt-get install -y time
+
+      - name: Verify pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release Sheets benchmark
+        run: cargo build --release --locked -p nexa-sheets --example phase4_perf
+
+      - name: Run sparse workbook benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/time -v target/release/examples/phase4_perf             > sheets-performance.txt             2> sheets-time.txt
+          cat sheets-performance.txt
+          cat sheets-time.txt
+
+      - name: Enforce shared-runner regression gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          metric() {
+            grep "^$1=" sheets-performance.txt | tail -1 | cut -d= -f2
+          }
+
+          rows="$(metric theoretical_rows)"
+          cells="$(metric populated_cells)"
+          viewport="$(metric viewport_cells)"
+          model_bytes="$(metric estimated_model_bytes)"
+          xlsx_bytes="$(metric xlsx_bytes)"
+          viewport_us="$(metric viewport_us)"
+          recalc_us="$(metric recalc_us)"
+          save_us="$(metric save_us)"
+          reopen_us="$(metric reopen_us)"
+          rss_kib="$(grep 'Maximum resident set size' sheets-time.txt | awk '{print $6}')"
+
+          test "$rows" -eq 1048576
+          test "$viewport" -eq 240
+          test "$cells" -lt 40000
+          test "$model_bytes" -lt 16777216
+          test "$xlsx_bytes" -lt 16777216
+          test "$viewport_us" -lt 100000
+          test "$recalc_us" -lt 5000000
+          test "$save_us" -lt 5000000
+          test "$reopen_us" -lt 5000000
+          test "$rss_kib" -lt 131072
+
+      - name: Upload Sheets performance result
+        uses: actions/upload-artifact@v4
+        with:
+          name: sheets-performance
+          path: |
+            sheets-performance.txt
+            sheets-time.txt

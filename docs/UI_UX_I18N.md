@@ -18,9 +18,9 @@ Current desktop breakpoints:
 
 - default window: 1240 × 800;
 - supported minimum: 840 × 560;
-- navigation automatically becomes compact below 1100 px;
-- the Docs toolbar enters a dense presentation below 1040 px;
-- the document tools rail becomes narrower in dense mode;
+- compact navigation is a persisted user preference and never depends on a self-referential window-layout binding;
+- enabling compact navigation also switches the Docs toolbar and tools rail to their dense presentation;
+- the document and spreadsheet workspaces keep bounded, clipped editing surfaces at the supported minimum size;
 - document paper width adapts to the remaining workspace.
 
 Responsive behavior must preserve access to every editing command. A compact visual label may use a symbol, but the accessibility label must remain descriptive.

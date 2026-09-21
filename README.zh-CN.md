@@ -19,6 +19,7 @@ Nexa Office 的目标不是把网页编辑器套进桌面壳，而是从底层�
 - Phase 1：原生 Rust/Slint 应用壳
 - Phase 2：OOXML / OPC 基础层
 - Phase 3：Nexa Docs MVP
+- Phase 4：Nexa Sheets MVP
 - 原生 UI/UX 现代化与中英文适配
 
 Nexa Docs 当前已经具备真实 DOCX 工作流：
@@ -32,7 +33,20 @@ Nexa Docs 当前已经具备真实 DOCX 工作流：
 - 兼容性检测与危险写入阻止
 - 未修改 OPC Part 的原始压缩数据保留
 
-> 当前仍是安全 MVP，并不宣称完整复刻 Microsoft Word。超出安全写入范围的复杂 WordprocessingML 会被识别并阻止破坏性保存。
+> Docs 与 Sheets 都采用安全 MVP 边界，并不宣称完整复刻 Microsoft Office。超出当前安全写入范围的复杂 OOXML 会被识别并阻止破坏性保存。
+
+Nexa Sheets 当前已经具备真实 XLSX 工作流：
+
+- 1,048,576 × 16,384 理论边界下的稀疏单元格模型
+- 固定大小虚拟化网格，不为百万行创建百万个 UI 对象
+- 数值、文本、布尔、错误值与公式
+- SUM / AVERAGE / MIN / MAX、算术、单元格/区域引用与循环引用检测
+- 确定性重算
+- 粗体、斜体、填充、对齐等基础格式
+- 合并单元格、行高、列宽、冻结窗格
+- 稀疏排序与筛选
+- 多工作表
+- XLSX 打开、原子保存、共享字符串导入与兼容性阻止
 
 ## UI / UX
 
@@ -54,6 +68,8 @@ Phase 3 在 GitHub 托管 Ubuntu Runner 的 Release 趋势样本中：
 - 空闲 CPU：采样 **0.000%**
 - Release 可执行文件：约 **14.9 MiB**
 
+Phase 4 Sheets 的 8,000 行 / 32,005 个已填充单元格稀疏样本中，模型估算约 **3.57 MiB**，240 单元格虚拟视口提取约 **266 µs**，重算约 **8.6 ms**，XLSX 保存约 **34 ms**，重新打开约 **53 ms**，benchmark 峰值 RSS 约 **28 MiB**。
+
 这些数据用于 CI 趋势和回归门禁，不代表所有终端设备上的固定数值。
 
 ## 开发
@@ -72,12 +88,13 @@ cargo fmt --all -- --check
 - `crates/nexa-app`：原生应用与 Slint UI
 - `crates/nexa-core`：UI 无关的应用状态
 - `crates/nexa-docs`：DOCX 语义、编辑与布局
+- `crates/nexa-sheets`：XLSX 工作簿、公式、虚拟化与 SpreadsheetML
 - `crates/nexa-ooxml`：OOXML / OPC / ZIP / XML 基础层
 - `docs/`：架构、门禁、路线图、性能与阶段验收记录
 
 ## 后续路线
 
-下一核心阶段是 **Phase 4 — Nexa Sheets MVP**，随后是 Slides、兼容性强化、平台原生集成与 Alpha/Beta/1.0 收口。
+下一核心阶段是 **Phase 5 — Nexa Slides MVP**，随后是兼容性强化、平台原生集成与 Alpha/Beta/1.0 收口。
 
 详细计划见 [Roadmap](docs/ROADMAP.md)。
 

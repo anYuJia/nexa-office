@@ -170,6 +170,10 @@ impl Package {
         &self.content_types
     }
 
+    pub fn content_types_mut(&mut self) -> &mut ContentTypeMap {
+        &mut self.content_types
+    }
+
     pub fn package_relationships_mut(&mut self) -> &mut RelationshipSet {
         &mut self.package_relationships
     }

@@ -3,10 +3,12 @@
 mod docs_session;
 mod platform;
 mod settings_store;
+mod sheets_session;
 
 use docs_session::{DocsSession, DocsSessionError};
 use nexa_core::{AppCommand, AppLanguage, AppPage, AppSettings, AppState, EditorKind};
 use platform::PlatformInfo;
+use sheets_session::{SheetRowData, SheetsSession, SheetsSessionError};
 use std::{
     cell::RefCell,
     path::{Path, PathBuf},
@@ -18,6 +20,7 @@ slint::include_modules!();
 
 type SharedState = Rc<RefCell<AppState>>;
 type SharedDocs = Rc<RefCell<Option<DocsSession>>>;
+type SharedSheets = Rc<RefCell<Option<SheetsSession>>>;
 
 fn main() -> Result<(), slint::PlatformError> {
     let startup = Instant::now();
@@ -26,6 +29,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let settings = load_settings(settings_path.as_deref());
     let state = Rc::new(RefCell::new(AppState::with_settings(settings)));
     let docs = Rc::new(RefCell::new(None));
+    let sheets = Rc::new(RefCell::new(None));
 
     configure_static_diagnostics(&ui);
 
@@ -39,14 +43,18 @@ fn main() -> Result<(), slint::PlatformError> {
         &ui,
         Rc::clone(&state),
         Rc::clone(&docs),
+        Rc::clone(&sheets),
         settings_path.clone(),
     );
     bind_docs_actions(&ui, Rc::clone(&state), Rc::clone(&docs));
+    bind_sheets_actions(&ui, Rc::clone(&state), Rc::clone(&sheets));
     bind_settings(&ui, Rc::clone(&state), settings_path.clone());
 
     if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from) {
         if is_docx_path(&path) {
             open_docs_path(&state, &docs, &ui.as_weak(), path);
+        } else if is_xlsx_path(&path) {
+            open_sheets_path(&state, &sheets, &ui.as_weak(), path);
         } else {
             update_state(
                 &state,
@@ -58,6 +66,7 @@ fn main() -> Result<(), slint::PlatformError> {
     } else {
         sync_ui(&state.borrow(), &ui);
         sync_docs_ui(docs.borrow().as_ref(), &ui);
+        sync_sheets_ui(sheets.borrow().as_ref(), &ui);
     }
 
     ui.set_shell_init_text(format!("{:.1} ms", startup.elapsed().as_secs_f64() * 1000.0).into());
@@ -155,6 +164,7 @@ fn bind_editor_actions(
     ui: &AppWindow,
     state: SharedState,
     docs: SharedDocs,
+    sheets: SharedSheets,
     settings_path: Option<PathBuf>,
 ) {
     {
@@ -183,15 +193,24 @@ fn bind_editor_actions(
 
     {
         let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
         let ui_weak = ui.as_weak();
         let settings_path = settings_path.clone();
         ui.on_create_sheets(move || {
+            *sheets.borrow_mut() = Some(SheetsSession::blank());
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_sheets_path_input("".into());
+                ui.set_sheets_filter_input("".into());
+            }
             update_state(
                 &state,
                 &ui_weak,
                 settings_path.as_deref(),
                 AppCommand::New(EditorKind::Sheets),
             );
+            if let Some(ui) = ui_weak.upgrade() {
+                sync_sheets_ui(sheets.borrow().as_ref(), &ui);
+            }
         });
     }
 
@@ -420,6 +439,230 @@ fn bind_format_action(ui: &AppWindow, state: SharedState, docs: SharedDocs, acti
     }
 }
 
+fn bind_sheets_actions(ui: &AppWindow, state: SharedState, sheets: SharedSheets) {
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_open_path(move |path| {
+            open_sheets_path(
+                &state,
+                &sheets,
+                &ui_weak,
+                PathBuf::from(path.trim().to_string()),
+            );
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_save(move || {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                session.save()?;
+                Ok(format!("Saved {}", session.title()))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_save_as(move |path| {
+            let path = PathBuf::from(path.trim().to_string());
+            apply_sheets_operation(&state, &sheets, &ui_weak, move |session| {
+                session.save_as(path)?;
+                Ok(format!("Saved {}", session.title()))
+            });
+            if let Some(ui) = ui_weak.upgrade()
+                && let Some(session) = sheets.borrow().as_ref()
+            {
+                ui.set_sheets_path_input(session.path_text().into());
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_select_cell(move |row, column| {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                session.select_cell(row.max(0) as u32, column.max(0) as u32)?;
+                Ok(format!("Cell {}", session.active_address()))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_select_address(move |address| {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                session.select_address(address.as_str())?;
+                Ok(format!("Cell {}", session.active_address()))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_edit_cell(move |value| {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                session.set_active_input(value.as_str())?;
+                Ok(format!("Edited {}", session.active_address()))
+            });
+        });
+    }
+
+    bind_sheets_format_action(
+        ui,
+        Rc::clone(&state),
+        Rc::clone(&sheets),
+        SheetsFormatAction::Bold,
+    );
+    bind_sheets_format_action(
+        ui,
+        Rc::clone(&state),
+        Rc::clone(&sheets),
+        SheetsFormatAction::Italic,
+    );
+    bind_sheets_format_action(
+        ui,
+        Rc::clone(&state),
+        Rc::clone(&sheets),
+        SheetsFormatAction::Fill,
+    );
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_scroll(move |rows, columns| {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                session.scroll(rows, columns);
+                Ok(format!("Cell {}", session.active_address()))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_sort(move |ascending| {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                session.sort_active_column(ascending)?;
+                Ok(if ascending {
+                    "Sorted ascending".into()
+                } else {
+                    "Sorted descending".into()
+                })
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_filter(move |value| {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                let hidden = session.filter_active_column_equals(value.as_str())?;
+                Ok(format!("Filtered {hidden} row(s)"))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_clear_filter(move || {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                session.clear_filter()?;
+                Ok("Filter cleared".into())
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_freeze_row(move || {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                session.freeze_first_row()?;
+                Ok("Freeze panes updated".into())
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_freeze_column(move || {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                session.freeze_first_column()?;
+                Ok("Freeze panes updated".into())
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        let ui_weak = ui.as_weak();
+        ui.on_sheets_add_sheet(move || {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                session.add_sheet()?;
+                Ok(format!("Added {}", session.sheet_name()))
+            });
+        });
+    }
+}
+
+#[derive(Clone, Copy)]
+enum SheetsFormatAction {
+    Bold,
+    Italic,
+    Fill,
+}
+
+fn bind_sheets_format_action(
+    ui: &AppWindow,
+    state: SharedState,
+    sheets: SharedSheets,
+    action: SheetsFormatAction,
+) {
+    let bind = move |ui_weak: slint::Weak<AppWindow>| {
+        let state = Rc::clone(&state);
+        let sheets = Rc::clone(&sheets);
+        move || {
+            apply_sheets_operation(&state, &sheets, &ui_weak, |session| {
+                match action {
+                    SheetsFormatAction::Bold => session.toggle_bold()?,
+                    SheetsFormatAction::Italic => session.toggle_italic()?,
+                    SheetsFormatAction::Fill => session.toggle_fill()?,
+                }
+                Ok("Formatting updated".into())
+            });
+        }
+    };
+
+    match action {
+        SheetsFormatAction::Bold => ui.on_sheets_toggle_bold(bind(ui.as_weak())),
+        SheetsFormatAction::Italic => ui.on_sheets_toggle_italic(bind(ui.as_weak())),
+        SheetsFormatAction::Fill => ui.on_sheets_toggle_fill(bind(ui.as_weak())),
+    }
+}
+
 fn bind_settings(ui: &AppWindow, state: SharedState, settings_path: Option<PathBuf>) {
     {
         let state = Rc::clone(&state);
@@ -504,6 +747,68 @@ fn open_docs_path(
     }
 }
 
+fn open_sheets_path(
+    state: &SharedState,
+    sheets: &SharedSheets,
+    ui: &slint::Weak<AppWindow>,
+    path: PathBuf,
+) {
+    match SheetsSession::open(path.clone()) {
+        Ok(session) => {
+            *sheets.borrow_mut() = Some(session);
+            {
+                let mut state = state.borrow_mut();
+                state.apply(AppCommand::OpenFile(path));
+                if let Some(session) = sheets.borrow().as_ref() {
+                    state.set_status(format!("Opened {}", session.title()));
+                }
+            }
+            if let Some(ui) = ui.upgrade() {
+                if let Some(session) = sheets.borrow().as_ref() {
+                    ui.set_sheets_path_input(session.path_text().into());
+                }
+                sync_ui(&state.borrow(), &ui);
+                sync_sheets_ui(sheets.borrow().as_ref(), &ui);
+            }
+        }
+        Err(error) => {
+            state
+                .borrow_mut()
+                .set_status(format!("Open failed: {error}"));
+            if let Some(ui) = ui.upgrade() {
+                sync_ui(&state.borrow(), &ui);
+            }
+        }
+    }
+}
+
+fn apply_sheets_operation(
+    state: &SharedState,
+    sheets: &SharedSheets,
+    ui: &slint::Weak<AppWindow>,
+    operation: impl FnOnce(&mut SheetsSession) -> Result<String, SheetsSessionError>,
+) {
+    let result = {
+        let mut sheets = sheets.borrow_mut();
+        match sheets.as_mut() {
+            Some(session) => operation(session),
+            None => Ok("No Sheets workbook is open".to_owned()),
+        }
+    };
+
+    match result {
+        Ok(status) => state.borrow_mut().set_status(status),
+        Err(error) => state
+            .borrow_mut()
+            .set_status(format!("Sheets command failed: {error}")),
+    }
+
+    if let Some(ui) = ui.upgrade() {
+        sync_ui(&state.borrow(), &ui);
+        sync_sheets_ui(sheets.borrow().as_ref(), &ui);
+    }
+}
+
 fn apply_docs_operation(
     state: &SharedState,
     docs: &SharedDocs,
@@ -581,14 +886,14 @@ fn persist_settings_if_available(
 }
 
 fn sync_ui(state: &AppState, ui: &AppWindow) {
-    let page = if state.active_editor() == Some(EditorKind::Docs) {
-        3
-    } else {
-        match state.page() {
+    let page = match state.active_editor() {
+        Some(EditorKind::Docs) => 3,
+        Some(EditorKind::Sheets) => 4,
+        _ => match state.page() {
             AppPage::Home => 0,
             AppPage::Diagnostics => 1,
             AppPage::Settings => 2,
-        }
+        },
     };
     let language = state.settings().language();
     let is_chinese = resolved_is_chinese(language);
@@ -708,10 +1013,137 @@ fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
     ui.set_docs_can_save(session.can_save());
 }
 
+fn sync_sheets_ui(session: Option<&SheetsSession>, ui: &AppWindow) {
+    let is_chinese = ui.get_is_chinese();
+    let Some(session) = session else {
+        ui.set_sheets_title("Sheets".into());
+        ui.set_sheets_current_path(if is_chinese {
+            "未打开表格".into()
+        } else {
+            "No workbook open".into()
+        });
+        ui.set_sheets_dirty_meta("".into());
+        ui.set_sheets_compatibility_text("".into());
+        ui.set_sheets_sheet_name("".into());
+        ui.set_sheets_address_input("A1".into());
+        ui.set_sheets_cell_input("".into());
+        ui.set_sheets_active_row(0);
+        ui.set_sheets_active_column(0);
+        ui.set_sheets_viewport_column(0);
+        ui.set_sheets_bold(false);
+        ui.set_sheets_italic(false);
+        ui.set_sheets_can_save(false);
+        ui.set_sheets_rows(Rc::new(slint::VecModel::from(Vec::<SheetRow>::new())).into());
+        return;
+    };
+
+    ui.set_sheets_title(session.title().into());
+    ui.set_sheets_current_path(if session.path_text().is_empty() {
+        if is_chinese {
+            "尚未保存".into()
+        } else {
+            "Not saved yet".into()
+        }
+    } else {
+        session.path_text().into()
+    });
+    ui.set_sheets_dirty_meta(
+        if session.is_dirty() {
+            if is_chinese {
+                "有未保存更改"
+            } else {
+                "Unsaved changes"
+            }
+        } else if is_chinese {
+            "已保存"
+        } else {
+            "Saved"
+        }
+        .into(),
+    );
+    ui.set_sheets_compatibility_text(if session.can_save() {
+        if is_chinese {
+            "兼容性检查：可安全写入".into()
+        } else {
+            "Compatibility check: writable".into()
+        }
+    } else if is_chinese {
+        format!(
+            "已阻止保存 · {} 个暂不支持的结构",
+            session.compatibility_issue_count()
+        )
+        .into()
+    } else {
+        format!(
+            "Save blocked · {} unsupported construct(s)",
+            session.compatibility_issue_count()
+        )
+        .into()
+    });
+    ui.set_sheets_sheet_name(
+        format!(
+            "{} · {}/{}",
+            session.sheet_name(),
+            session.active_sheet_index() + 1,
+            session.sheet_count()
+        )
+        .into(),
+    );
+    ui.set_sheets_address_input(session.active_address().into());
+    ui.set_sheets_cell_input(session.active_input().into());
+    ui.set_sheets_active_row(session.active_cell().row as i32);
+    ui.set_sheets_active_column(session.active_cell().column as i32);
+    ui.set_sheets_viewport_column(session.viewport_column() as i32);
+    ui.set_sheets_bold(session.active_bold());
+    ui.set_sheets_italic(session.active_italic());
+    ui.set_sheets_can_save(session.can_save());
+
+    let header_values = session.viewport_header();
+    ui.set_sheets_header(sheet_row_from_values(-1, "".into(), &header_values));
+
+    let rows = session
+        .viewport_rows()
+        .into_iter()
+        .map(sheet_row_from_data)
+        .collect::<Vec<_>>();
+    ui.set_sheets_rows(Rc::new(slint::VecModel::from(rows)).into());
+}
+
+fn sheet_row_from_data(row: SheetRowData) -> SheetRow {
+    sheet_row_from_values(row.row as i32, row.row_label.into(), &row.cells)
+}
+
+fn sheet_row_from_values(
+    row_index: i32,
+    row_label: slint::SharedString,
+    cells: &[String; 10],
+) -> SheetRow {
+    SheetRow {
+        row_index,
+        row_label,
+        c0: cells[0].clone().into(),
+        c1: cells[1].clone().into(),
+        c2: cells[2].clone().into(),
+        c3: cells[3].clone().into(),
+        c4: cells[4].clone().into(),
+        c5: cells[5].clone().into(),
+        c6: cells[6].clone().into(),
+        c7: cells[7].clone().into(),
+        c8: cells[8].clone().into(),
+        c9: cells[9].clone().into(),
+    }
+}
+
 fn is_docx_path(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| extension.eq_ignore_ascii_case("docx"))
+}
+
+fn is_xlsx_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("xlsx"))
 }
 
 fn resolved_is_chinese(language: AppLanguage) -> bool {
@@ -743,7 +1175,7 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
         "Diagnostics" => "诊断".to_owned(),
         "Settings" => "设置".to_owned(),
         "New Docs document" => "已新建文档".to_owned(),
-        "Sheets editor is planned for Phase 4" => "表格编辑器将在 Phase 4 实现".to_owned(),
+        "New Sheets workbook" => "已新建表格".to_owned(),
         "Slides editor is planned for Phase 5" => "演示编辑器将在 Phase 5 实现".to_owned(),
         "Status bar shown" => "已显示状态栏".to_owned(),
         "Status bar hidden" => "已隐藏状态栏".to_owned(),
@@ -758,6 +1190,26 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
         "Enter text to search" => "请输入要查找的内容".to_owned(),
         "Enter text to replace" => "请输入要替换的内容".to_owned(),
         "No Docs document is open" => "当前未打开文档".to_owned(),
+        "No Sheets workbook is open" => "当前未打开表格".to_owned(),
+        "Sorted ascending" => "已升序排序".to_owned(),
+        "Sorted descending" => "已降序排序".to_owned(),
+        "Filter cleared" => "已清除筛选".to_owned(),
+        "Freeze panes updated" => "冻结窗格已更新".to_owned(),
+        other if other.starts_with("Cell ") => {
+            format!("单元格 {}", &other["Cell ".len()..])
+        }
+        other if other.starts_with("Edited ") => {
+            format!("已编辑 {}", &other["Edited ".len()..])
+        }
+        other if other.starts_with("Filtered ") && other.ends_with(" row(s)") => {
+            let count = other
+                .trim_start_matches("Filtered ")
+                .trim_end_matches(" row(s)");
+            format!("已筛选，隐藏 {count} 行")
+        }
+        other if other.starts_with("Added ") => {
+            format!("已添加 {}", &other["Added ".len()..])
+        }
         other if other.starts_with("Editing paragraph ") => {
             format!("正在编辑第 {} 段", &other["Editing paragraph ".len()..])
         }
@@ -790,6 +1242,12 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
         }
         other if other.starts_with("Docs command failed: ") => {
             format!("文档操作失败：{}", &other["Docs command failed: ".len()..])
+        }
+        other if other.starts_with("Sheets command failed: ") => {
+            format!(
+                "表格操作失败：{}",
+                &other["Sheets command failed: ".len()..]
+            )
         }
         _ => status.to_owned(),
     }

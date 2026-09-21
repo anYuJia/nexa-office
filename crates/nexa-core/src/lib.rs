@@ -192,7 +192,7 @@ impl AppState {
                 self.active_editor = Some(editor);
                 self.status = match editor {
                     EditorKind::Docs => "New Docs document".to_owned(),
-                    EditorKind::Sheets => "Sheets editor is planned for Phase 4".to_owned(),
+                    EditorKind::Sheets => "New Sheets workbook".to_owned(),
                     EditorKind::Slides => "Slides editor is planned for Phase 5".to_owned(),
                 };
             }
