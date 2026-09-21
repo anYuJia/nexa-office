@@ -68,6 +68,13 @@ fn main() -> Result<(), slint::PlatformError> {
     bind_sheets_actions(&ui, Rc::clone(&state), Rc::clone(&sheets));
     bind_slides_actions(&ui, Rc::clone(&state), Rc::clone(&slides));
     bind_settings(&ui, Rc::clone(&state), settings_path.clone());
+    bind_native_actions(
+        &ui,
+        Rc::clone(&state),
+        Rc::clone(&docs),
+        Rc::clone(&sheets),
+        Rc::clone(&slides),
+    );
 
     if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from) {
         if is_docx_path(&path) {
@@ -895,6 +902,219 @@ fn bind_slides_actions(ui: &AppWindow, state: SharedState, slides: SharedSlides)
     }
 }
 
+fn bind_native_actions(
+    ui: &AppWindow,
+    state: SharedState,
+    docs: SharedDocs,
+    sheets: SharedSheets,
+    slides: SharedSlides,
+) {
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_native_open(move || match native_integration::choose_open_file() {
+            Ok(Some(path)) => {
+                open_office_path(&state, &docs, &sheets, &slides, &ui_weak, path);
+            }
+            Ok(None) => {}
+            Err(error) => {
+                state
+                    .borrow_mut()
+                    .set_status(format!("Native open dialog failed: {error}"));
+                if let Some(ui) = ui_weak.upgrade() {
+                    sync_ui(&state.borrow(), &ui);
+                }
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_open_recent(move |path| {
+            open_office_path(
+                &state,
+                &docs,
+                &sheets,
+                &slides,
+                &ui_weak,
+                PathBuf::from(path.as_str()),
+            );
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_native_save_as(move || {
+            let editor = state.borrow().active_editor();
+            let (extension, suggested) = match editor {
+                Some(EditorKind::Docs) => (
+                    "docx",
+                    docs.borrow()
+                        .as_ref()
+                        .map_or_else(|| "Untitled.docx".to_owned(), DocsSession::title),
+                ),
+                Some(EditorKind::Sheets) => (
+                    "xlsx",
+                    sheets
+                        .borrow()
+                        .as_ref()
+                        .map_or_else(|| "Untitled.xlsx".to_owned(), SheetsSession::title),
+                ),
+                Some(EditorKind::Slides) => (
+                    "pptx",
+                    slides
+                        .borrow()
+                        .as_ref()
+                        .map_or_else(|| "Untitled.pptx".to_owned(), SlidesSession::title),
+                ),
+                None => return,
+            };
+
+            match native_integration::choose_save_file(extension, &suggested) {
+                Ok(Some(path)) => match editor {
+                    Some(EditorKind::Docs) => {
+                        apply_docs_operation(&state, &docs, &ui_weak, move |session| {
+                            session.save_as(path)?;
+                            Ok(format!("Saved {}", session.title()))
+                        });
+                    }
+                    Some(EditorKind::Sheets) => {
+                        apply_sheets_operation(&state, &sheets, &ui_weak, move |session| {
+                            session.save_as(path)?;
+                            Ok(format!("Saved {}", session.title()))
+                        });
+                    }
+                    Some(EditorKind::Slides) => {
+                        apply_slides_operation(&state, &slides, &ui_weak, move |session| {
+                            session.save_as(path)?;
+                            Ok(format!("Saved {}", session.title()))
+                        });
+                    }
+                    None => {}
+                },
+                Ok(None) => {}
+                Err(error) => {
+                    state
+                        .borrow_mut()
+                        .set_status(format!("Native save dialog failed: {error}"));
+                    if let Some(ui) = ui_weak.upgrade() {
+                        sync_ui(&state.borrow(), &ui);
+                    }
+                }
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_native_print(move || {
+            let current = current_file(&state.borrow(), &docs, &sheets, &slides);
+            match current {
+                Some((_, true)) => state
+                    .borrow_mut()
+                    .set_status("Save current changes before printing"),
+                Some((path, false)) => match native_integration::print_file(&path) {
+                    Ok(()) => state.borrow_mut().set_status("Sent document to native print queue"),
+                    Err(error) => state
+                        .borrow_mut()
+                        .set_status(format!("Native print failed: {error}")),
+                },
+                None => state
+                    .borrow_mut()
+                    .set_status("Save the document before printing"),
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                sync_ui(&state.borrow(), &ui);
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_native_copy_path(move || {
+            let current = current_file(&state.borrow(), &docs, &sheets, &slides);
+            match current {
+                Some((path, _)) => match native_integration::copy_text(&path.to_string_lossy()) {
+                    Ok(()) => state.borrow_mut().set_status("File path copied"),
+                    Err(error) => state
+                        .borrow_mut()
+                        .set_status(format!("Clipboard command failed: {error}")),
+                },
+                None => state.borrow_mut().set_status("No saved file path to copy"),
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                sync_ui(&state.borrow(), &ui);
+            }
+        });
+    }
+}
+
+fn open_office_path(
+    state: &SharedState,
+    docs: &SharedDocs,
+    sheets: &SharedSheets,
+    slides: &SharedSlides,
+    ui: &slint::Weak<AppWindow>,
+    path: PathBuf,
+) {
+    if is_docx_path(&path) {
+        open_docs_path(state, docs, ui, path);
+    } else if is_xlsx_path(&path) {
+        open_sheets_path(state, sheets, ui, path);
+    } else if is_pptx_path(&path) {
+        open_slides_path(state, slides, ui, path);
+    } else {
+        state
+            .borrow_mut()
+            .set_status("Unsupported Office file type");
+        if let Some(ui) = ui.upgrade() {
+            sync_ui(&state.borrow(), &ui);
+        }
+    }
+}
+
+fn current_file(
+    state: &AppState,
+    docs: &SharedDocs,
+    sheets: &SharedSheets,
+    slides: &SharedSlides,
+) -> Option<(PathBuf, bool)> {
+    match state.active_editor() {
+        Some(EditorKind::Docs) => docs
+            .borrow()
+            .as_ref()
+            .and_then(|session| session.path().map(|path| (path.to_path_buf(), session.is_dirty()))),
+        Some(EditorKind::Sheets) => sheets
+            .borrow()
+            .as_ref()
+            .and_then(|session| session.path().map(|path| (path.to_path_buf(), session.is_dirty()))),
+        Some(EditorKind::Slides) => slides
+            .borrow()
+            .as_ref()
+            .and_then(|session| session.path().map(|path| (path.to_path_buf(), session.is_dirty()))),
+        None => None,
+    }
+}
+
 fn bind_settings(ui: &AppWindow, state: SharedState, settings_path: Option<PathBuf>) {
     {
         let state = Rc::clone(&state);
@@ -1300,6 +1520,20 @@ fn sync_ui(state: &AppState, ui: &AppWindow) {
     ui.set_status_text(localize_status(state.status(), is_chinese).into());
     ui.set_show_status_bar(state.settings().show_status_bar());
     ui.set_compact_navigation(state.settings().compact_navigation());
+    let recent = state
+        .recent_files()
+        .iter()
+        .take(3)
+        .map(|path| RecentFileRow {
+            label: path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("Office file")
+                .into(),
+            path: path.to_string_lossy().into_owned().into(),
+        })
+        .collect::<Vec<_>>();
+    ui.set_recent_files(Rc::new(slint::VecModel::from(recent)).into());
 }
 
 fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
@@ -1670,6 +1904,13 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
 
     match status {
         "Native shell ready" => "原生工作区已就绪".to_owned(),
+        "Recovered unsaved work from the previous session" => "已恢复上次会话中未保存的内容".to_owned(),
+        "Save current changes before printing" => "打印前请先保存当前更改".to_owned(),
+        "Sent document to native print queue" => "已发送到系统打印队列".to_owned(),
+        "Save the document before printing" => "打印前请先保存文件".to_owned(),
+        "File path copied" => "已复制文件路径".to_owned(),
+        "No saved file path to copy" => "当前没有可复制的已保存文件路径".to_owned(),
+        "Unsupported Office file type" => "不支持的 Office 文件类型".to_owned(),
         "Home" => "首页".to_owned(),
         "Diagnostics" => "诊断".to_owned(),
         "Settings" => "设置".to_owned(),
