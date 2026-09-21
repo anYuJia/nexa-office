@@ -952,6 +952,36 @@ fn bind_native_actions(
         let sheets = Rc::clone(&sheets);
         let slides = Rc::clone(&slides);
         let ui_weak = ui.as_weak();
+        ui.on_drop_office_data(move |data| match data.plain_text() {
+            Ok(value) => {
+                if let Some(path) = path_from_drop_text(value.as_str()) {
+                    open_office_path(&state, &docs, &sheets, &slides, &ui_weak, path);
+                } else {
+                    state
+                        .borrow_mut()
+                        .set_status("Dropped data does not contain an Office file path");
+                    if let Some(ui) = ui_weak.upgrade() {
+                        sync_ui(&state.borrow(), &ui);
+                    }
+                }
+            }
+            Err(error) => {
+                state
+                    .borrow_mut()
+                    .set_status(format!("Dropped data could not be read: {error}"));
+                if let Some(ui) = ui_weak.upgrade() {
+                    sync_ui(&state.borrow(), &ui);
+                }
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
         ui.on_native_save_as(move || {
             let editor = state.borrow().active_editor();
             let (extension, suggested) = match editor {
@@ -1065,6 +1095,21 @@ fn bind_native_actions(
             }
         });
     }
+}
+
+fn path_from_drop_text(value: &str) -> Option<PathBuf> {
+    let first = value.lines().map(str::trim).find(|line| !line.is_empty())?;
+    let decoded = first
+        .strip_prefix("file://")
+        .unwrap_or(first)
+        .replace("%20", " ")
+        .replace("%23", "#");
+    let path = if cfg!(target_os = "windows") && decoded.starts_with('/') && decoded.as_bytes().get(2) == Some(&b':') {
+        PathBuf::from(&decoded[1..])
+    } else {
+        PathBuf::from(decoded)
+    };
+    (is_docx_path(&path) || is_xlsx_path(&path) || is_pptx_path(&path)).then_some(path)
 }
 
 fn open_office_path(
@@ -1927,6 +1972,7 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
         "File path copied" => "已复制文件路径".to_owned(),
         "No saved file path to copy" => "当前没有可复制的已保存文件路径".to_owned(),
         "Unsupported Office file type" => "不支持的 Office 文件类型".to_owned(),
+        "Dropped data does not contain an Office file path" => "拖入的数据中没有可打开的 Office 文件路径".to_owned(),
         "Home" => "首页".to_owned(),
         "Diagnostics" => "诊断".to_owned(),
         "Settings" => "设置".to_owned(),
@@ -2051,6 +2097,19 @@ mod tests {
         );
         assert_eq!(localize_status("Replaced 4 match(es)", true), "已替换 4 处");
         assert_eq!(localize_status("7 match(es)", true), "找到 7 处匹配");
+    }
+
+    #[test]
+    fn dropped_paths_accept_office_paths_and_file_uris() {
+        assert_eq!(
+            path_from_drop_text("/tmp/report.docx"),
+            Some(PathBuf::from("/tmp/report.docx"))
+        );
+        assert_eq!(
+            path_from_drop_text("file:///tmp/Quarter%20Plan.xlsx"),
+            Some(PathBuf::from("/tmp/Quarter Plan.xlsx"))
+        );
+        assert!(path_from_drop_text("/tmp/image.png").is_none());
     }
 
     #[test]
