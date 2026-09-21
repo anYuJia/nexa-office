@@ -313,10 +313,13 @@ impl SheetsSession {
     }
 
     pub fn freeze_first_row(&mut self) -> Result<(), SheetsSessionError> {
-        let pane = self.active_sheet_mut()?.freeze_pane().unwrap_or(FreezePane {
-            rows: 0,
-            columns: 0,
-        });
+        let pane = self
+            .active_sheet_mut()?
+            .freeze_pane()
+            .unwrap_or(FreezePane {
+                rows: 0,
+                columns: 0,
+            });
         self.active_sheet_mut()?.set_freeze_pane(Some(FreezePane {
             rows: if pane.rows == 0 { 1 } else { 0 },
             columns: pane.columns,
@@ -326,10 +329,13 @@ impl SheetsSession {
     }
 
     pub fn freeze_first_column(&mut self) -> Result<(), SheetsSessionError> {
-        let pane = self.active_sheet_mut()?.freeze_pane().unwrap_or(FreezePane {
-            rows: 0,
-            columns: 0,
-        });
+        let pane = self
+            .active_sheet_mut()?
+            .freeze_pane()
+            .unwrap_or(FreezePane {
+                rows: 0,
+                columns: 0,
+            });
         self.active_sheet_mut()?.set_freeze_pane(Some(FreezePane {
             rows: pane.rows,
             columns: if pane.columns == 0 { 1 } else { 0 },
@@ -418,7 +424,8 @@ impl SheetsSession {
     }
 
     fn set_active_format(&mut self, format: CellFormat) -> Result<(), SheetsSessionError> {
-        self.active_sheet_mut()?.set_format(self.active_cell, format);
+        self.active_sheet_mut()?
+            .set_format(self.active_cell, format);
         self.dirty = true;
         Ok(())
     }
@@ -513,10 +520,12 @@ mod tests {
     fn viewport_rows_are_bounded() {
         let session = SheetsSession::blank();
         assert_eq!(session.viewport_rows().len(), VIEWPORT_ROWS);
-        assert!(session
-            .viewport_rows()
-            .iter()
-            .all(|row| row.cells.len() == VIEWPORT_COLUMNS));
+        assert!(
+            session
+                .viewport_rows()
+                .iter()
+                .all(|row| row.cells.len() == VIEWPORT_COLUMNS)
+        );
     }
 
     fn unique_test_directory() -> PathBuf {
