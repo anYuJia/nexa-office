@@ -2,6 +2,9 @@
 set -euo pipefail
 
 binary="${1:-target/release/nexa-office}"
+if (( $# > 0 )); then
+  shift
+fi
 settle_seconds="${SETTLE_SECONDS:-30}"
 cpu_sample_seconds="${CPU_SAMPLE_SECONDS:-10}"
 max_private_kb="${MAX_PRIVATE_KB:-61440}"
@@ -13,7 +16,7 @@ if [[ ! -x "$binary" ]]; then
   exit 2
 fi
 
-"$binary" &
+"$binary" "$@" &
 pid=$!
 trap 'kill "$pid" 2>/dev/null || true' EXIT
 

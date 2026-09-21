@@ -1,15 +1,12 @@
 use nexa_docs::{
-    Alignment, Block, CellProperties, DocsEditor, DocxDocument, ListReference, Paragraph,
-    ParagraphProperties, Paginator, Run, RunContent, RunProperties, Table, TableCell,
+    Alignment, Block, CellProperties, DocsEditor, DocxDocument, ListReference, Paginator,
+    Paragraph, ParagraphProperties, Run, RunContent, RunProperties, Table, TableCell,
     TableProperties, TableRow, TextPosition, open_docx, save_docx,
 };
-use std::{
-    io::Cursor,
-    time::Instant,
-};
+use std::{fs, io::Cursor, path::PathBuf, time::Instant};
 
 const PAGE_COUNT: usize = 20;
-const BODY_PARAGRAPHS_PER_PAGE: usize = 12;
+const BODY_PARAGRAPHS_PER_PAGE: usize = 5;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let build_start = Instant::now();
@@ -24,9 +21,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let layout = Paginator::default().layout(document);
     let layout_us = layout_start.elapsed().as_micros();
 
+    if layout.page_count() != PAGE_COUNT {
+        return Err(format!(
+            "Phase 3 fixture must lay out to exactly {PAGE_COUNT} pages, got {}",
+            layout.page_count()
+        )
+        .into());
+    }
+
     let save_start = Instant::now();
     let initial_bytes = save_docx(&mut docx, Cursor::new(Vec::new()))?.into_inner();
     let initial_save_us = save_start.elapsed().as_micros();
+
+    if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from) {
+        fs::write(path, &initial_bytes)?;
+    }
 
     let open_start = Instant::now();
     let mut reopened = open_docx(Cursor::new(initial_bytes.clone()))?;
@@ -146,7 +155,7 @@ fn build_fixture() -> DocxDocument {
         }
 
         document.blocks.push(Block::Table(Table {
-            rows: (0..3)
+            rows: (0..2)
                 .map(|row| TableRow {
                     cells: (0..3)
                         .map(|column| TableCell {
