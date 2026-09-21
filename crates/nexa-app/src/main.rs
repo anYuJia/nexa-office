@@ -1,7 +1,10 @@
 #![deny(unsafe_code)]
 
 mod docs_session;
+mod native_integration;
 mod platform;
+mod recent_store;
+mod recovery_store;
 mod settings_store;
 mod sheets_session;
 mod slides_session;
@@ -9,6 +12,7 @@ mod slides_session;
 use docs_session::{DocsSession, DocsSessionError};
 use nexa_core::{AppCommand, AppLanguage, AppPage, AppSettings, AppState, EditorKind};
 use platform::PlatformInfo;
+use recovery_store::RecoveryKind;
 use sheets_session::{SheetRowData, SheetsSession, SheetsSessionError};
 use slides_session::{SlideElementSummary, SlidesSession, SlidesSessionError};
 use std::{
@@ -29,8 +33,17 @@ fn main() -> Result<(), slint::PlatformError> {
     let startup = Instant::now();
     let ui = AppWindow::new()?;
     let settings_path = platform::settings_path();
+    let recent_path = platform::recent_files_path();
+    let recovery_directory = platform::recovery_directory();
     let settings = load_settings(settings_path.as_deref());
-    let state = Rc::new(RefCell::new(AppState::with_settings(settings)));
+    let recent_files = recent_path
+        .as_deref()
+        .and_then(|path| recent_store::load(path).ok())
+        .unwrap_or_default();
+    let state = Rc::new(RefCell::new(AppState::with_settings_and_recent(
+        settings,
+        recent_files,
+    )));
     let docs = Rc::new(RefCell::new(None));
     let sheets = Rc::new(RefCell::new(None));
     let slides = Rc::new(RefCell::new(None));
@@ -72,14 +85,84 @@ fn main() -> Result<(), slint::PlatformError> {
             );
         }
     } else {
-        sync_ui(&state.borrow(), &ui);
-        sync_docs_ui(docs.borrow().as_ref(), &ui);
-        sync_sheets_ui(sheets.borrow().as_ref(), &ui);
-        sync_slides_ui(slides.borrow().as_ref(), &ui);
+        let recovered = recovery_directory.as_deref().is_some_and(|root| {
+            restore_latest_recovery(
+                root,
+                &state,
+                &docs,
+                &sheets,
+                &slides,
+                &ui,
+            )
+        });
+        if !recovered {
+            sync_ui(&state.borrow(), &ui);
+            sync_docs_ui(docs.borrow().as_ref(), &ui);
+            sync_sheets_ui(sheets.borrow().as_ref(), &ui);
+            sync_slides_ui(slides.borrow().as_ref(), &ui);
+        }
     }
 
     ui.set_shell_init_text(format!("{:.1} ms", startup.elapsed().as_secs_f64() * 1000.0).into());
     ui.run()
+}
+
+fn restore_latest_recovery(
+    root: &Path,
+    state: &SharedState,
+    docs: &SharedDocs,
+    sheets: &SharedSheets,
+    slides: &SharedSlides,
+    ui: &AppWindow,
+) -> bool {
+    let Ok(Some(candidate)) = recovery_store::latest_candidate(root) else {
+        return false;
+    };
+
+    let restored = match candidate.kind {
+        RecoveryKind::Docs => DocsSession::open_recovery(candidate.snapshot, candidate.original)
+            .map(|session| {
+                *docs.borrow_mut() = Some(session);
+                state.borrow_mut().apply(AppCommand::New(EditorKind::Docs));
+            })
+            .map_err(|error| error.to_string()),
+        RecoveryKind::Sheets => {
+            SheetsSession::open_recovery(candidate.snapshot, candidate.original)
+                .map(|session| {
+                    *sheets.borrow_mut() = Some(session);
+                    state.borrow_mut().apply(AppCommand::New(EditorKind::Sheets));
+                })
+                .map_err(|error| error.to_string())
+        }
+        RecoveryKind::Slides => {
+            SlidesSession::open_recovery(candidate.snapshot, candidate.original)
+                .map(|session| {
+                    *slides.borrow_mut() = Some(session);
+                    state.borrow_mut().apply(AppCommand::New(EditorKind::Slides));
+                })
+                .map_err(|error| error.to_string())
+        }
+    };
+
+    match restored {
+        Ok(()) => {
+            state
+                .borrow_mut()
+                .set_status("Recovered unsaved work from the previous session");
+            sync_ui(&state.borrow(), ui);
+            sync_docs_ui(docs.borrow().as_ref(), ui);
+            sync_sheets_ui(sheets.borrow().as_ref(), ui);
+            sync_slides_ui(slides.borrow().as_ref(), ui);
+            true
+        }
+        Err(error) => {
+            state
+                .borrow_mut()
+                .set_status(format!("Recovery failed: {error}"));
+            sync_ui(&state.borrow(), ui);
+            false
+        }
+    }
 }
 
 fn load_settings(path: Option<&Path>) -> AppSettings {
