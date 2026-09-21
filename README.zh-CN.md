@@ -1,0 +1,88 @@
+# Nexa Office
+
+[English](README.md) · 简体中文
+
+> 使用 Rust 构建的原生、轻量办公套件。
+
+Nexa Office 的目标不是把网页编辑器套进桌面壳，而是从底层做一个真正原生的 Office 替代方案：
+
+- **原生轻量**：Rust + Slint，不使用 Chromium、Electron、Tauri 或 WebView 编辑器运行时。
+- **兼容优先**：DOCX / XLSX / PPTX 作为一等格式，未知 OOXML 内容尽量保留；无法安全改写时宁可阻止保存，也不静默破坏文件。
+- **性能门禁**：启动、空闲 CPU、内存、文档操作延迟和安装体积都进入 CI，而不是最后再优化。
+- **中文友好**：支持跟随系统、简体中文、English，设置会保存在本机。
+
+## 当前进度
+
+已完成：
+
+- Phase 0：工程规范、AI 约束、代码/测试/性能/安全门禁
+- Phase 1：原生 Rust/Slint 应用壳
+- Phase 2：OOXML / OPC 基础层
+- Phase 3：Nexa Docs MVP
+- 原生 UI/UX 现代化与中英文适配
+
+Nexa Docs 当前已经具备真实 DOCX 工作流：
+
+- 打开、保存、原子化另存为
+- 段落编辑与插入
+- 粗体 / 斜体 / 下划线
+- 查找与全部替换
+- 撤销 / 重做
+- 分页与文档状态
+- 兼容性检测与危险写入阻止
+- 未修改 OPC Part 的原始压缩数据保留
+
+> 当前仍是安全 MVP，并不宣称完整复刻 Microsoft Word。超出安全写入范围的复杂 WordprocessingML 会被识别并阻止破坏性保存。
+
+## UI / UX
+
+界面采用轻量、低卡片化的信息层级：
+
+- 宽屏侧栏，较窄窗口自动切换紧凑导航
+- Docs 在较窄窗口自动压缩工具栏
+- 中英文完整切换
+- 自定义按钮、开关、导航提供辅助功能角色与标签
+- CJK 使用平台字体回退，不额外打包大体积字体
+- 设置仅保存在本机，不依赖账号和云端
+
+## 性能
+
+Phase 3 在 GitHub 托管 Ubuntu Runner 的 Release 趋势样本中：
+
+- 20 页 DOCX 全应用 PSS：约 **15.5 MiB**
+- Private memory：约 **13.5 MiB**
+- 空闲 CPU：采样 **0.000%**
+- Release 可执行文件：约 **14.9 MiB**
+
+这些数据用于 CI 趋势和回归门禁，不代表所有终端设备上的固定数值。
+
+## 开发
+
+要求 Rust 1.98.1：
+
+```bash
+cargo run --locked -p nexa-app
+cargo test --workspace --all-targets --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo fmt --all -- --check
+```
+
+## 目录
+
+- `crates/nexa-app`：原生应用与 Slint UI
+- `crates/nexa-core`：UI 无关的应用状态
+- `crates/nexa-docs`：DOCX 语义、编辑与布局
+- `crates/nexa-ooxml`：OOXML / OPC / ZIP / XML 基础层
+- `docs/`：架构、门禁、路线图、性能与阶段验收记录
+
+## 后续路线
+
+下一核心阶段是 **Phase 4 — Nexa Sheets MVP**，随后是 Slides、兼容性强化、平台原生集成与 Alpha/Beta/1.0 收口。
+
+详细计划见 [Roadmap](docs/ROADMAP.md)。
+
+## 核心原则
+
+> 正确性第一，经过测量的性能第二，功能数量第三。
+
+任何会破坏文件、静默丢失 OOXML、造成无边界内存增长或绕过质量门禁的功能，都不算“完成”。
