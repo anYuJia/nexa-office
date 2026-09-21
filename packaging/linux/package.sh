@@ -2,7 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-VERSION="${VERSION:-0.1.0}"
+PACKAGE_VERSION="${PACKAGE_VERSION:-${VERSION:-0.1.0}}"
+RELEASE_VERSION="${RELEASE_VERSION:-$PACKAGE_VERSION}"
+DEB_VERSION="${DEB_VERSION:-${RELEASE_VERSION/-/~}}"
 HOST_ARCH="${ARCH:-$(uname -m)}"
 
 case "$HOST_ARCH" in
@@ -12,9 +14,9 @@ case "$HOST_ARCH" in
 esac
 
 OUT="$ROOT/target/package"
-STAGE="$OUT/nexa-office_${VERSION}_${DEB_ARCH}"
-DEB="$OUT/nexa-office_${VERSION}_${DEB_ARCH}.deb"
-TAR="$OUT/nexa-office_${VERSION}_${DEB_ARCH}.tar.gz"
+STAGE="$OUT/nexa-office_${RELEASE_VERSION}_${DEB_ARCH}"
+DEB="$OUT/nexa-office_${RELEASE_VERSION}_${DEB_ARCH}.deb"
+TAR="$OUT/nexa-office_${RELEASE_VERSION}_${DEB_ARCH}.tar.gz"
 
 cargo build --release --locked -p nexa-app
 rm -rf "$STAGE" "$DEB" "$TAR"
