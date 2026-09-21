@@ -23,7 +23,7 @@ The exact dependency set is not frozen. New foundational dependencies require an
 
 ## Status
 
-Nexa Office has completed the **Phase 8 release-hardening engineering baseline**. Docs, Sheets and Slides have native Rust semantic engines, shared interoperability safeguards, native Slint workspaces, recent-file persistence, crash recovery, native dialogs/printing handoff, Office file-association metadata, reproducible package validation and three-platform release gates. Alpha/Beta/1.0 publication remains a separate release decision governed by the release checklist.
+Nexa Office has completed the **Phase 8 release-hardening engineering baseline**. Docs, Sheets and Slides have native Rust semantic engines, shared interoperability safeguards, native Slint workspaces, recent-file persistence, crash recovery, native dialogs/printing handoff, Office file-association metadata, reproducible package validation and three-platform release gates. Alpha/Beta/1.0 publication remains a separate release decision governed by the release checklist. The current repository release target is **v0.1.0-alpha.1**, prepared as a prerelease candidate rather than a stable release.
 
 The native Rust/Slint application includes real Docs, Sheets and Slides workspaces. The home surface prioritizes native file open, creation and typed recent files; compact-navigation mode also switches editor toolbars to dense labels while keeping full accessibility names. Docs provides safe DOCX editing, formatting, search/replace, undo/redo and pagination. Sheets provides a sparse XLSX-sized workbook model, a bounded virtualized grid, formulas and deterministic recalculation, formatting, merged cells, row/column sizing, sort/filter, freeze panes, multi-sheet editing and XLSX open/save. Slides provides a native multi-slide model, text boxes, basic shapes, tables, image relationship preservation, z-order editing, slide operations and PPTX open/save with compatibility blocking. The shell remains bilingual (System / 简体中文 / English), accessibility-aware and browser-runtime-free. Unsupported destructive rewrites remain blocked instead of silently losing Office content.
 
@@ -56,6 +56,9 @@ The native Rust/Slint application includes real Docs, Sheets and Slides workspac
 - [Known Limitations](docs/KNOWN_LIMITATIONS.md)
 - [Migration / Compatibility](docs/MIGRATION_COMPATIBILITY.md)
 - [Release Checklist](docs/RELEASE_CHECKLIST.md)
+- [v0.1.0-alpha.1 Release Notes](docs/releases/v0.1.0-alpha.1.md)
+- [v0.1.0-alpha.1 Candidate Checklist](docs/releases/v0.1.0-alpha.1-CHECKLIST.md)
+- [Changelog](CHANGELOG.md)
 - [Reproducible Builds](docs/REPRODUCIBLE_BUILDS.md)
 - [Crash Reporting](docs/CRASH_REPORTING.md)
 - [UI / UX and localization](docs/UI_UX_I18N.md)

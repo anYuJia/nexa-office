@@ -2,7 +2,15 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-VERSION="${VERSION:-0.1.0}"
+PACKAGE_VERSION="${PACKAGE_VERSION:-${VERSION:-0.1.0}}"
+RELEASE_VERSION="${RELEASE_VERSION:-$PACKAGE_VERSION}"
+if [[ -n "${DEB_VERSION:-}" ]]; then
+  :
+elif [[ "$RELEASE_VERSION" == *-* ]]; then
+  DEB_VERSION="${RELEASE_VERSION%%-*}~${RELEASE_VERSION#*-}"
+else
+  DEB_VERSION="$RELEASE_VERSION"
+fi
 HOST_ARCH="${ARCH:-$(uname -m)}"
 
 case "$HOST_ARCH" in
@@ -12,9 +20,9 @@ case "$HOST_ARCH" in
 esac
 
 OUT="$ROOT/target/package"
-STAGE="$OUT/nexa-office_${VERSION}_${DEB_ARCH}"
-DEB="$OUT/nexa-office_${VERSION}_${DEB_ARCH}.deb"
-TAR="$OUT/nexa-office_${VERSION}_${DEB_ARCH}.tar.gz"
+STAGE="$OUT/nexa-office_${RELEASE_VERSION}_${DEB_ARCH}"
+DEB="$OUT/nexa-office_${RELEASE_VERSION}_${DEB_ARCH}.deb"
+TAR="$OUT/nexa-office_${RELEASE_VERSION}_${DEB_ARCH}.tar.gz"
 
 cargo build --release --locked -p nexa-app
 rm -rf "$STAGE" "$DEB" "$TAR"
@@ -26,7 +34,7 @@ install -m 0644 "$ROOT/packaging/linux/nexa-office.xml" "$STAGE/usr/share/mime/p
 mkdir -p "$STAGE/DEBIAN"
 cat > "$STAGE/DEBIAN/control" <<EOF
 Package: nexa-office
-Version: $VERSION
+Version: $DEB_VERSION
 Section: office
 Priority: optional
 Architecture: $DEB_ARCH

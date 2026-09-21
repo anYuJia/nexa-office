@@ -41,7 +41,16 @@ jobs:
           else
             version="${GITHUB_REF_NAME#v}"
           fi
+          python scripts/release/verify_version.py "$version"
+          package_version="$(python scripts/release/verify_version.py --workspace)"
+          if [[ "$version" == *-* ]]; then
+            prerelease="true"
+          else
+            prerelease="false"
+          fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
 
       - name: Verify workspace version
         shell: bash
@@ -73,21 +82,24 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         env:
-          VERSION: ${{ steps.version.outputs.value }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
         run: bash packaging/linux/package.sh
 
       - name: Build macOS packages
         if: runner.os == 'macOS'
         shell: bash
         env:
-          VERSION: ${{ steps.version.outputs.value }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
         run: bash packaging/macos/package.sh
 
       - name: Build Windows packages
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          VERSION: ${{ steps.version.outputs.value }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.value }}
         run: ./packaging/windows/package.ps1
 
       - name: Generate traceability metadata
@@ -115,6 +127,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -133,4 +147,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" release-assets/*             --repo "${GITHUB_REPOSITORY}"             --title "Nexa Office ${GITHUB_REF_NAME}"             --generate-notes
+          notes_file="docs/releases/${GITHUB_REF_NAME}.md"
+          extra_args=()
+          notes_args=(--generate-notes)
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            extra_args+=(--prerelease)
+          fi
+          if [[ -f "$notes_file" ]]; then
+            notes_args=(--notes-file "$notes_file")
+          fi
+          gh release create "${GITHUB_REF_NAME}" release-assets/*             --repo "${GITHUB_REPOSITORY}"             --title "Nexa Office ${GITHUB_REF_NAME}"             "${extra_args[@]}" "${notes_args[@]}"
