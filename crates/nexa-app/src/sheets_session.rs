@@ -1,5 +1,5 @@
 use nexa_sheets::{
-    CellAddress, CellFormat, CellRange, FreezePane, WorkbookError, XlsxError, XlsxWorkbook,
+    CellAddress, CellFormat, FreezePane, WorkbookError, XlsxError, XlsxWorkbook,
     open_xlsx, save_xlsx_atomic,
 };
 use std::{
@@ -424,8 +424,8 @@ impl SheetsSession {
     }
 
     fn set_active_format(&mut self, format: CellFormat) -> Result<(), SheetsSessionError> {
-        self.active_sheet_mut()?
-            .set_format(self.active_cell, format);
+        let active_cell = self.active_cell;
+        self.active_sheet_mut()?.set_format(active_cell, format);
         self.dirty = true;
         Ok(())
     }
