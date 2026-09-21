@@ -21,7 +21,8 @@ Nexa Office 的目标不是把网页编辑器套进桌面壳，而是从底层�
 - Phase 3：Nexa Docs MVP
 - Phase 4：Nexa Sheets MVP
 - Phase 5：Nexa Slides MVP
-- Phase 6：兼容性与互操作强化（进行中）
+- Phase 6：兼容性与互操作强化
+- Phase 7：原生产品集成
 - 原生 UI/UX 现代化与中英文适配
 
 Nexa Docs 当前已经具备真实 DOCX 工作流：
@@ -63,8 +64,8 @@ Nexa Slides 当前已经具备原生 PPTX 工作流：
 
 界面采用轻量、低卡片化的信息层级：
 
-- 宽屏侧栏，较窄窗口自动切换紧凑导航
-- Docs 在较窄窗口自动压缩工具栏
+- 统一侧栏与显式紧凑导航模式
+- Docs / Sheets / Slides 共享稳定的原生桌面导航行为
 - 中英文完整切换
 - 自定义按钮、开关、导航提供辅助功能角色与标签
 - CJK 使用平台字体回退，不额外打包大体积字体
@@ -106,7 +107,7 @@ cargo fmt --all -- --check
 
 ## 后续路线
 
-当前正在推进 **Phase 6 — 兼容性与互操作强化**，重点是统一重写风险审计、真实 Office corpus、Unicode/CJK/RTL 保真以及高风险 OOXML 的安全阻断；随后进行平台原生集成与 Alpha/Beta/1.0 收口。
+Phase 6 与 Phase 7 已完成：统一重写风险审计、Unicode/CJK/RTL 保真、原生文件对话框、最近文件、崩溃恢复、打印/剪贴板交接、三平台打包元数据与原生集成门禁均已落地。当前进入 **Phase 8 — Alpha / Beta / 1.0 稳定性与发布硬化**。
 
 详细计划见 [Roadmap](docs/ROADMAP.md)。
 

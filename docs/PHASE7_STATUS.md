@@ -1,6 +1,6 @@
 # Phase 7 — Native Product Integration
 
-Status: **In progress**.
+Status: **Completed**.
 
 Phase 7 turns the native Docs / Sheets / Slides engines into a desktop product without introducing a browser runtime or a heavyweight integration framework.
 
@@ -26,7 +26,8 @@ Phase 7 turns the native Docs / Sheets / Slides engines into a desktop product w
 - macOS Retina/high-resolution bundle metadata;
 - Windows PerMonitorV2 DPI manifest;
 - Linux desktop/MIME integration;
-- responsive navigation restored across Docs / Sheets / Slides.
+- stable compact-navigation mode shared across Docs / Sheets / Slides;
+- dropped Office path/URI handling through Slint `DropArea`, using stable plain-text/file-URI transfer when the platform exposes it.
 
 ## Product integration policy
 
@@ -54,12 +55,15 @@ Checked-in platform metadata lives under `packaging/`.
 
 Release signing/notarization requires publisher credentials and therefore remains a release-environment responsibility rather than checked-in secrets.
 
-## Remaining exit validation
+## Exit validation
 
-- three-platform Rust quality;
-- native integration unit tests;
-- packaging metadata validation;
-- package-size gate;
-- existing Docs / Sheets / Slides / OOXML / interoperability performance gates.
+Phase 7 exited after the latest functional HEAD passed:
 
-Phase 7 is complete only when the latest branch HEAD passes those gates.
+- Windows / macOS / Linux Rust quality;
+- three-platform native integration unit tests and Clippy;
+- packaging script/XML validation;
+- release executable size gate;
+- Docs / Sheets / Slides / native performance gates;
+- interoperability regression gate.
+
+Native cross-application file drag/drop remains bounded by Slint's stable Rust `DataTransfer` API. Nexa accepts stable plain-text paths and `file://` URI payloads without depending on private file-list interfaces.
