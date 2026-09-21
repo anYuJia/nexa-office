@@ -2127,10 +2127,8 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system clock should follow Unix epoch")
             .as_nanos();
-        let directory = std::env::temp_dir().join(format!(
-            "nexa-phase8-soak-{}-{nonce}",
-            process::id()
-        ));
+        let directory =
+            std::env::temp_dir().join(format!("nexa-phase8-soak-{}-{nonce}", process::id()));
         fs::create_dir_all(&directory).unwrap();
 
         let docx_path = directory.join("soak.docx");
@@ -2142,7 +2140,8 @@ mod tests {
             docs.set_current_paragraph_text(&format!("第 {round} 轮 · Nexa Docs"))
                 .unwrap();
             docs.insert_paragraph_after_current().unwrap();
-            docs.set_current_paragraph_text("مرحبا · שלום · 🚀").unwrap();
+            docs.set_current_paragraph_text("مرحبا · שלום · 🚀")
+                .unwrap();
             docs.toggle_bold().unwrap();
             docs.save_as(docx_path.clone()).unwrap();
             let reopened = DocsSession::open(docx_path.clone()).unwrap();
