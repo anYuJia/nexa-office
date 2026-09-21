@@ -1,6 +1,6 @@
 # Phase 8 — Alpha / Beta / 1.0 Hardening
 
-Status: **In progress — release pipeline and contracts implemented**.
+Status: **Completed — release-hardening engineering baseline**.
 
 Phase 8 converts the completed native product baseline into a release-ready engineering process. Completing this phase does not itself declare a 1.0 release.
 
@@ -45,9 +45,9 @@ Beta additionally requires broad corpus testing, real package builds, bounded so
 
 These are explicit release gates rather than hidden TODOs.
 
-## Exit condition for this engineering phase
+## Exit validation
 
-The implementation branch may be marked complete when the final HEAD passes:
+The implementation branch exits after the final HEAD passes:
 
 - existing Windows/macOS/Linux CI;
 - OOXML/interoperability/document performance gates;
@@ -55,3 +55,10 @@ The implementation branch may be marked complete when the final HEAD passes:
 - Release Hardening Gate with real package builds on all three platforms.
 
 Formal Alpha, Beta or 1.0 publication remains a separate release decision using `docs/RELEASE_CHECKLIST.md`.
+
+
+## Publication boundary
+
+Completing Phase 8 means the repository now contains the engineering controls needed to build and validate Alpha/Beta/1.0 candidates. It does **not** claim that Nexa Office 1.0 has been published.
+
+A public Alpha, Beta or 1.0 release still requires the publisher-controlled checklist items that cannot be satisfied by source code alone: final version/tag choice, signing/notarization credentials, final license/contribution decision, reference-hardware interactive soak evidence and the actual release publication step.
