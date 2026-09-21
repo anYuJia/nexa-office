@@ -1,7 +1,7 @@
 use crate::{
-    AbstractList, Alignment, Block, CompatibilityReport, Document, HeaderFooter,
-    InlineImage, ListFormat, ListLevel, ListReference, Numbering, NumberingInstance, Orientation,
-    PageMargins, Paragraph, ParagraphProperties, RgbColor, Run, RunContent, RunProperties, Section,
+    AbstractList, Alignment, Block, CompatibilityReport, Document, HeaderFooter, InlineImage,
+    ListFormat, ListLevel, ListReference, Numbering, NumberingInstance, Orientation, PageMargins,
+    Paragraph, ParagraphProperties, RgbColor, Run, RunContent, RunProperties, Section,
     SectionProperties, Style, StyleKind, StyleSheet, Table, TableCell, TableProperties, TableRow,
 };
 use nexa_ooxml::{
@@ -1108,23 +1108,21 @@ fn parse_styles_xml(input: &[u8]) -> Result<StyleSheet, DocxError> {
                 }
                 _ => {}
             },
-            Event::End(element) => {
-                match element.local_name().as_ref() {
-                    "pPr" => in_ppr = false,
-                    "rPr" => in_rpr = false,
-                    "style" => {
-                        if let Some(style) = current.take() {
-                            if style.id == "Normal" || sheet.default_paragraph_style.is_none() {
-                                if style.kind == StyleKind::Paragraph {
-                                    sheet.default_paragraph_style = Some(style.id.clone());
-                                }
+            Event::End(element) => match element.local_name().as_ref() {
+                "pPr" => in_ppr = false,
+                "rPr" => in_rpr = false,
+                "style" => {
+                    if let Some(style) = current.take() {
+                        if style.id == "Normal" || sheet.default_paragraph_style.is_none() {
+                            if style.kind == StyleKind::Paragraph {
+                                sheet.default_paragraph_style = Some(style.id.clone());
                             }
-                            sheet.styles.insert(style.id.clone(), style);
                         }
+                        sheet.styles.insert(style.id.clone(), style);
                     }
-                    _ => {}
                 }
-            }
+                _ => {}
+            },
             Event::DocType(_) => {
                 return Err(DocxError::Xml("DOCTYPE is not allowed in styles".into()));
             }
@@ -1211,30 +1209,28 @@ fn parse_numbering_xml(input: &[u8]) -> Result<Numbering, DocxError> {
                 }
                 _ => {}
             },
-            Event::End(element) => {
-                match element.local_name().as_ref() {
-                    "lvl" => {
-                        if let (Some(list), Some(level)) = (&mut abstract_list, level.take()) {
-                            list.levels.insert(level.level, level);
-                        }
+            Event::End(element) => match element.local_name().as_ref() {
+                "lvl" => {
+                    if let (Some(list), Some(level)) = (&mut abstract_list, level.take()) {
+                        list.levels.insert(level.level, level);
                     }
-                    "abstractNum" => {
-                        if let Some(list) = abstract_list.take() {
-                            numbering.abstract_lists.insert(list.id, list);
-                        }
-                    }
-                    "num" => {
-                        if let (Some(id), Some(abstract_id)) =
-                            (number_id.take(), abstract_id_for_num.take())
-                        {
-                            numbering
-                                .instances
-                                .insert(id, NumberingInstance { id, abstract_id });
-                        }
-                    }
-                    _ => {}
                 }
-            }
+                "abstractNum" => {
+                    if let Some(list) = abstract_list.take() {
+                        numbering.abstract_lists.insert(list.id, list);
+                    }
+                }
+                "num" => {
+                    if let (Some(id), Some(abstract_id)) =
+                        (number_id.take(), abstract_id_for_num.take())
+                    {
+                        numbering
+                            .instances
+                            .insert(id, NumberingInstance { id, abstract_id });
+                    }
+                }
+                _ => {}
+            },
             Event::DocType(_) => {
                 return Err(DocxError::Xml("DOCTYPE is not allowed in numbering".into()));
             }
