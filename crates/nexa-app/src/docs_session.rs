@@ -194,6 +194,18 @@ impl DocsSession {
         self.current_paragraph = self.current_paragraph.saturating_add(1).min(last);
     }
 
+    pub fn insert_paragraph_after_current(&mut self) -> Result<(), DocsSessionError> {
+        let len = self.current_paragraph_len()?;
+        self.editor.set_caret(TextPosition {
+            paragraph: self.current_paragraph,
+            offset: len,
+        })?;
+        self.editor.insert_paragraph()?;
+        self.current_paragraph = self.current_paragraph.saturating_add(1);
+        self.dirty = true;
+        Ok(())
+    }
+
     pub fn toggle_bold(&mut self) -> Result<(), DocsSessionError> {
         self.select_current_paragraph()?;
         self.editor.toggle_bold()?;
