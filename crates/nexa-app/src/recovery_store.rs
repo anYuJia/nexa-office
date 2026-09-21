@@ -39,6 +39,22 @@ pub struct RecoveryCandidate {
     pub original: Option<PathBuf>,
 }
 
+pub fn latest_candidate(root: &Path) -> io::Result<Option<RecoveryCandidate>> {
+    let mut best: Option<(SystemTime, RecoveryCandidate)> = None;
+    for kind in [RecoveryKind::Docs, RecoveryKind::Sheets, RecoveryKind::Slides] {
+        let Some(value) = candidate(root, kind)? else {
+            continue;
+        };
+        let modified = fs::metadata(&value.snapshot)
+            .and_then(|metadata| metadata.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+        if best.as_ref().is_none_or(|(current, _)| modified > *current) {
+            best = Some((modified, value));
+        }
+    }
+    Ok(best.map(|(_, value)| value))
+}
+
 pub fn candidate(root: &Path, kind: RecoveryKind) -> io::Result<Option<RecoveryCandidate>> {
     let snapshot = snapshot_path(root, kind);
     if !snapshot.exists() {
