@@ -1090,7 +1090,7 @@ fn sync_sheets_ui(session: Option<&SheetsSession>, ui: &AppWindow) {
         format!(
             "{} · {}/{}",
             session.sheet_name(),
-            session.xlsx_active_sheet_display_index(),
+            session.active_sheet_index() + 1,
             session.sheet_count()
         )
         .into(),
