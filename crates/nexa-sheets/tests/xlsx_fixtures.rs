@@ -9,7 +9,11 @@ fn values_formula_and_unicode_fixture_round_trip() {
     let mut xlsx = XlsxWorkbook::blank();
     let workbook = xlsx.workbook_mut();
     workbook
-        .set_cell_input(0, CellAddress::parse_a1("A1").unwrap(), "中文办公 🚀 مرحبا שלום")
+        .set_cell_input(
+            0,
+            CellAddress::parse_a1("A1").unwrap(),
+            "中文办公 🚀 مرحبا שלום",
+        )
         .unwrap();
     workbook
         .set_cell_input(0, CellAddress::parse_a1("B1").unwrap(), "12.5")
