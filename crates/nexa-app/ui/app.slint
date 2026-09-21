@@ -315,6 +315,12 @@ export struct SheetRow {
     c9: string,
 }
 
+export struct SlideElementRow {
+    index: int,
+    kind: string,
+    text: string,
+}
+
 component SheetHeaderCell inherits Rectangle {
     in property <string> label;
 
@@ -366,7 +372,9 @@ component SheetGridCell inherits Rectangle {
 export component AppWindow inherits Window {
     title: root.page == 3
         ? root.docs-title + " — Nexa Office"
-        : (root.page == 4 ? root.sheets-title + " — Nexa Office" : "Nexa Office");
+        : (root.page == 4
+            ? root.sheets-title + " — Nexa Office"
+            : (root.page == 5 ? root.slides-title + " — Nexa Office" : "Nexa Office"));
     preferred-width: 1240px;
     preferred-height: 800px;
     min-width: 840px;
@@ -419,6 +427,16 @@ export component AppWindow inherits Window {
     in property <SheetRow> sheets-header;
     in property <[SheetRow]> sheets-rows;
 
+    in-out property <string> slides-path-input: "";
+    in-out property <string> slides-selected-text: "";
+    in property <string> slides-title: "Slides";
+    in property <string> slides-current-path: "";
+    in property <string> slides-dirty-meta: "";
+    in property <string> slides-compatibility-text: "";
+    in property <string> slides-slide-meta: "";
+    in property <bool> slides-can-save: false;
+    in property <[SlideElementRow]> slides-elements;
+
     private property <bool> nav-compact: root.compact-navigation;
     private property <bool> dense-docs: root.compact-navigation;
 
@@ -465,6 +483,23 @@ export component AppWindow inherits Window {
     callback sheets-freeze-column();
     callback sheets-add-sheet();
 
+    callback slides-open-path(string);
+    callback slides-save();
+    callback slides-save-as(string);
+    callback slides-previous();
+    callback slides-next();
+    callback slides-add-slide();
+    callback slides-duplicate();
+    callback slides-delete-slide();
+    callback slides-add-text();
+    callback slides-add-shape();
+    callback slides-add-table();
+    callback slides-select-element(int);
+    callback slides-edit-text(string);
+    callback slides-delete-element();
+    callback slides-bring-forward();
+    callback slides-send-backward();
+
     MenuBar {
         Menu {
             title: root.is-chinese ? "文件" : "File";
@@ -481,15 +516,23 @@ export component AppWindow inherits Window {
             }
 
             MenuItem {
+                title: root.is-chinese ? "新建演示文稿" : "New Presentation";
+                activated => { root.create-slides(); }
+            }
+
+            MenuItem {
                 title: root.is-chinese ? "保存" : "Save";
                 shortcut: @keys(Control + S);
                 enabled: (root.page == 3 && root.docs-can-save)
-                    || (root.page == 4 && root.sheets-can-save);
+                    || (root.page == 4 && root.sheets-can-save)
+                    || (root.page == 5 && root.slides-can-save);
                 activated => {
                     if (root.page == 3) {
                         root.docs-save();
                     } else if (root.page == 4) {
                         root.sheets-save();
+                    } else if (root.page == 5) {
+                        root.slides-save();
                     }
                 }
             }
@@ -639,6 +682,14 @@ export component AppWindow inherits Window {
                     compact: root.nav-compact;
                     active: root.page == 4;
                     activated => { root.create-sheets(); }
+                }
+
+                NavItem {
+                    glyph: "P";
+                    label: root.is-chinese ? "演示" : "Slides";
+                    compact: root.nav-compact;
+                    active: root.page == 5;
+                    activated => { root.create-slides(); }
                 }
 
                 Rectangle { height: 14px; background: transparent; }
@@ -1599,6 +1650,316 @@ export component AppWindow inherits Window {
                                 vertical-alignment: center;
                                 horizontal-alignment: right;
                                 overflow: elide;
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            if root.page == 5 : Rectangle {
+                vertical-stretch: 1;
+                background: #eef1f5;
+
+                VerticalLayout {
+                    spacing: 0px;
+
+                    Rectangle {
+                        height: 56px;
+                        background: #ffffff;
+                        border-color: #eaecf0;
+                        border-width: 1px;
+
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 10px;
+
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                spacing: 1px;
+                                Rectangle { vertical-stretch: 1; background: transparent; }
+                                Text {
+                                    text: root.slides-title;
+                                    color: #101828;
+                                    font-size: 15px;
+                                    font-weight: 680;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: root.slides-current-path;
+                                    color: #98a2b3;
+                                    font-size: 9px;
+                                    overflow: elide;
+                                }
+                                Rectangle { vertical-stretch: 1; background: transparent; }
+                            }
+
+                            Text {
+                                text: root.slides-dirty-meta;
+                                color: root.slides-dirty-meta == "Saved"
+                                    || root.slides-dirty-meta == "已保存"
+                                    ? #667085 : #b54708;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                            }
+
+                            ToolButton {
+                                label: root.is-chinese ? "保存" : "Save";
+                                enabled: root.slides-can-save;
+                                activated => { root.slides-save(); }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 44px;
+                        background: #fbfcfd;
+                        border-color: #eaecf0;
+                        border-width: 1px;
+
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            padding-top: 5px;
+                            padding-bottom: 5px;
+                            spacing: 6px;
+
+                            ToolButton { label: "←"; accessible-name: root.is-chinese ? "上一页" : "Previous slide"; quiet: true; activated => { root.slides-previous(); } }
+                            ToolButton { label: "→"; accessible-name: root.is-chinese ? "下一页" : "Next slide"; quiet: true; activated => { root.slides-next(); } }
+
+                            Text {
+                                text: root.slides-slide-meta;
+                                color: #475467;
+                                font-size: 11px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+
+                            Rectangle { width: 1px; background: #e4e7ec; }
+
+                            ToolButton { label: root.is-chinese ? "+ 页面" : "+ Slide"; quiet: true; activated => { root.slides-add-slide(); } }
+                            ToolButton { label: root.is-chinese ? "复制" : "Duplicate"; quiet: true; activated => { root.slides-duplicate(); } }
+                            ToolButton { label: root.is-chinese ? "删除页" : "Delete slide"; quiet: true; activated => { root.slides-delete-slide(); } }
+
+                            Rectangle { width: 1px; background: #e4e7ec; }
+
+                            ToolButton { label: root.is-chinese ? "文本" : "Text"; activated => { root.slides-add-text(); } }
+                            ToolButton { label: root.is-chinese ? "形状" : "Shape"; activated => { root.slides-add-shape(); } }
+                            ToolButton { label: root.is-chinese ? "表格" : "Table"; activated => { root.slides-add-table(); } }
+
+                            Rectangle { horizontal-stretch: 1; background: transparent; }
+
+                            ToolButton { label: "↑"; accessible-name: root.is-chinese ? "上移一层" : "Bring forward"; quiet: true; activated => { root.slides-bring-forward(); } }
+                            ToolButton { label: "↓"; accessible-name: root.is-chinese ? "下移一层" : "Send backward"; quiet: true; activated => { root.slides-send-backward(); } }
+                            ToolButton { label: "×"; accessible-name: root.is-chinese ? "删除元素" : "Delete element"; quiet: true; activated => { root.slides-delete-element(); } }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        vertical-stretch: 1;
+                        spacing: 0px;
+
+                        Rectangle {
+                            width: root.nav-compact ? 168px : 204px;
+                            background: #ffffff;
+                            border-color: #eaecf0;
+                            border-width: 1px;
+                            accessible-role: complementary;
+                            accessible-label: root.is-chinese ? "元素列表" : "Element list";
+
+                            VerticalLayout {
+                                padding: 10px;
+                                spacing: 6px;
+
+                                Text {
+                                    height: 26px;
+                                    text: root.is-chinese ? "当前页元素" : "SLIDE ELEMENTS";
+                                    color: #98a2b3;
+                                    font-size: 9px;
+                                    font-weight: 650;
+                                    vertical-alignment: center;
+                                }
+
+                                for element in root.slides-elements : Rectangle {
+                                    height: 44px;
+                                    border-radius: 7px;
+                                    background: #f8f9fb;
+                                    border-color: #e4e7ec;
+                                    border-width: 1px;
+                                    accessible-role: button;
+                                    accessible-label: element.kind + " " + element.text;
+                                    accessible-action-default => { root.slides-select-element(element.index); }
+
+                                    VerticalLayout {
+                                        padding-left: 9px;
+                                        padding-right: 9px;
+                                        padding-top: 5px;
+                                        padding-bottom: 5px;
+                                        spacing: 1px;
+                                        Text {
+                                            text: element.kind;
+                                            color: #344054;
+                                            font-size: 10px;
+                                            font-weight: 650;
+                                        }
+                                        Text {
+                                            text: element.text;
+                                            color: #667085;
+                                            font-size: 9px;
+                                            overflow: elide;
+                                        }
+                                    }
+
+                                    TouchArea {
+                                        clicked => { root.slides-select-element(element.index); }
+                                    }
+                                }
+
+                                Rectangle { vertical-stretch: 1; background: transparent; }
+                            }
+                        }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            background: #e3e7ed;
+                            accessible-role: region;
+                            accessible-label: root.is-chinese ? "幻灯片画布" : "Slide canvas";
+
+                            Rectangle {
+                                width: parent.width > 880px ? 800px : parent.width - 36px;
+                                height: width * 0.5625;
+                                y: (parent.height - height) / 2;
+                                x: (parent.width - width) / 2;
+                                background: #ffffff;
+                                border-color: #d0d5dd;
+                                border-width: 1px;
+                                border-radius: 5px;
+
+                                VerticalLayout {
+                                    padding: 34px;
+                                    spacing: 12px;
+
+                                    Text {
+                                        text: root.slides-slide-meta;
+                                        color: #98a2b3;
+                                        font-size: 10px;
+                                    }
+
+                                    for element in root.slides-elements : Rectangle {
+                                        height: 46px;
+                                        background: #f9fafb;
+                                        border-color: #e4e7ec;
+                                        border-width: 1px;
+                                        border-radius: 6px;
+
+                                        HorizontalLayout {
+                                            padding-left: 12px;
+                                            padding-right: 12px;
+                                            spacing: 10px;
+                                            Text {
+                                                width: 70px;
+                                                text: element.kind;
+                                                color: #475467;
+                                                font-size: 10px;
+                                                font-weight: 650;
+                                                vertical-alignment: center;
+                                            }
+                                            Text {
+                                                horizontal-stretch: 1;
+                                                text: element.text;
+                                                color: #101828;
+                                                font-size: 12px;
+                                                vertical-alignment: center;
+                                                overflow: elide;
+                                            }
+                                        }
+
+                                        TouchArea {
+                                            clicked => { root.slides-select-element(element.index); }
+                                        }
+                                    }
+
+                                    Rectangle { vertical-stretch: 1; background: transparent; }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: root.nav-compact ? 190px : 232px;
+                            background: #ffffff;
+                            border-color: #eaecf0;
+                            border-width: 1px;
+                            accessible-role: complementary;
+                            accessible-label: root.is-chinese ? "演示文稿工具" : "Presentation tools";
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 9px;
+
+                                Text {
+                                    height: 26px;
+                                    text: root.is-chinese ? "选中元素" : "SELECTED ELEMENT";
+                                    color: #98a2b3;
+                                    font-size: 9px;
+                                    font-weight: 650;
+                                    vertical-alignment: center;
+                                }
+
+                                LineEdit {
+                                    text <=> root.slides-selected-text;
+                                    placeholder-text: root.is-chinese ? "选择元素后编辑文字" : "Select an element to edit text";
+                                    accepted(value) => { root.slides-edit-text(value); }
+                                }
+
+                                ToolButton {
+                                    label: root.is-chinese ? "应用文字" : "Apply text";
+                                    activated => { root.slides-edit-text(root.slides-selected-text); }
+                                }
+
+                                Rectangle { height: 1px; background: #f0f1f3; }
+
+                                Text {
+                                    height: 26px;
+                                    text: root.is-chinese ? "文件" : "FILE";
+                                    color: #98a2b3;
+                                    font-size: 9px;
+                                    font-weight: 650;
+                                    vertical-alignment: center;
+                                }
+
+                                LineEdit {
+                                    text <=> root.slides-path-input;
+                                    placeholder-text: root.is-chinese ? "输入 .pptx 文件路径" : "Enter a .pptx file path";
+                                    accepted(path) => { root.slides-open-path(path); }
+                                }
+
+                                HorizontalLayout {
+                                    height: 34px;
+                                    spacing: 6px;
+                                    ToolButton {
+                                        horizontal-stretch: 1;
+                                        label: root.is-chinese ? "打开" : "Open";
+                                        activated => { root.slides-open-path(root.slides-path-input); }
+                                    }
+                                    ToolButton {
+                                        horizontal-stretch: 1;
+                                        label: root.is-chinese ? "另存为" : "Save As";
+                                        enabled: root.slides-can-save;
+                                        activated => { root.slides-save-as(root.slides-path-input); }
+                                    }
+                                }
+
+                                Rectangle { vertical-stretch: 1; background: transparent; }
+
+                                Text {
+                                    height: 54px;
+                                    text: root.slides-compatibility-text;
+                                    color: root.slides-can-save ? #027a48 : #b42318;
+                                    font-size: 10px;
+                                    wrap: word-wrap;
+                                    vertical-alignment: center;
+                                }
                             }
                         }
                     }
