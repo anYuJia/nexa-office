@@ -65,3 +65,13 @@ pub fn settings_path() -> Option<PathBuf> {
 pub fn settings_path() -> Option<PathBuf> {
     None
 }
+
+#[must_use]
+pub fn recent_files_path() -> Option<PathBuf> {
+    settings_path().and_then(|path| path.parent().map(|parent| parent.join("recent.txt")))
+}
+
+#[must_use]
+pub fn recovery_directory() -> Option<PathBuf> {
+    settings_path().and_then(|path| path.parent().map(|parent| parent.join("recovery")))
+}

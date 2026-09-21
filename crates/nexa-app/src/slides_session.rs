@@ -104,6 +104,11 @@ impl SlidesSession {
     }
 
     #[must_use]
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
+    }
+
+    #[must_use]
     pub fn path_text(&self) -> String {
         self.path
             .as_deref()
@@ -337,6 +342,22 @@ impl SlidesSession {
 
     pub fn save_as(&mut self, path: impl Into<PathBuf>) -> Result<(), SlidesSessionError> {
         self.save_to(path.into())
+    }
+
+    pub fn save_recovery_copy(&mut self, path: &Path) -> Result<(), SlidesSessionError> {
+        validate_pptx_path(path)?;
+        save_pptx_atomic(&mut self.pptx, path)?;
+        Ok(())
+    }
+
+    pub fn open_recovery(
+        snapshot: impl Into<PathBuf>,
+        original: Option<PathBuf>,
+    ) -> Result<Self, SlidesSessionError> {
+        let mut session = Self::open(snapshot)?;
+        session.path = original;
+        session.dirty = true;
+        Ok(session)
     }
 
     fn save_to(&mut self, path: PathBuf) -> Result<(), SlidesSessionError> {

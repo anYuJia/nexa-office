@@ -119,6 +119,11 @@ impl SheetsSession {
     }
 
     #[must_use]
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
+    }
+
+    #[must_use]
     pub fn path_text(&self) -> String {
         self.path
             .as_deref()
@@ -406,6 +411,22 @@ impl SheetsSession {
 
     pub fn save_as(&mut self, path: impl Into<PathBuf>) -> Result<(), SheetsSessionError> {
         self.save_to(path.into())
+    }
+
+    pub fn save_recovery_copy(&mut self, path: &Path) -> Result<(), SheetsSessionError> {
+        validate_xlsx_path(path)?;
+        save_xlsx_atomic(&mut self.xlsx, path)?;
+        Ok(())
+    }
+
+    pub fn open_recovery(
+        snapshot: impl Into<PathBuf>,
+        original: Option<PathBuf>,
+    ) -> Result<Self, SheetsSessionError> {
+        let mut session = Self::open(snapshot)?;
+        session.path = original;
+        session.dirty = true;
+        Ok(session)
     }
 
     fn save_to(&mut self, path: PathBuf) -> Result<(), SheetsSessionError> {

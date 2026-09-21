@@ -104,6 +104,11 @@ impl DocsSession {
     }
 
     #[must_use]
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
+    }
+
+    #[must_use]
     pub fn path_text(&self) -> String {
         self.path
             .as_deref()
@@ -303,6 +308,23 @@ impl DocsSession {
 
     pub fn save_as(&mut self, path: impl Into<PathBuf>) -> Result<(), DocsSessionError> {
         self.save_to(path.into())
+    }
+
+    pub fn save_recovery_copy(&mut self, path: &Path) -> Result<(), DocsSessionError> {
+        validate_docx_path(path)?;
+        self.docx.replace_document(self.editor.document().clone());
+        save_docx_atomic(&mut self.docx, path)?;
+        Ok(())
+    }
+
+    pub fn open_recovery(
+        snapshot: impl Into<PathBuf>,
+        original: Option<PathBuf>,
+    ) -> Result<Self, DocsSessionError> {
+        let mut session = Self::open(snapshot)?;
+        session.path = original;
+        session.dirty = true;
+        Ok(session)
     }
 
     fn save_to(&mut self, path: PathBuf) -> Result<(), DocsSessionError> {

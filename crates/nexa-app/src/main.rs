@@ -1,7 +1,10 @@
 #![deny(unsafe_code)]
 
 mod docs_session;
+mod native_integration;
 mod platform;
+mod recent_store;
+mod recovery_store;
 mod settings_store;
 mod sheets_session;
 mod slides_session;
@@ -9,6 +12,7 @@ mod slides_session;
 use docs_session::{DocsSession, DocsSessionError};
 use nexa_core::{AppCommand, AppLanguage, AppPage, AppSettings, AppState, EditorKind};
 use platform::PlatformInfo;
+use recovery_store::RecoveryKind;
 use sheets_session::{SheetRowData, SheetsSession, SheetsSessionError};
 use slides_session::{SlideElementSummary, SlidesSession, SlidesSessionError};
 use std::{
@@ -29,8 +33,17 @@ fn main() -> Result<(), slint::PlatformError> {
     let startup = Instant::now();
     let ui = AppWindow::new()?;
     let settings_path = platform::settings_path();
+    let recent_path = platform::recent_files_path();
+    let recovery_directory = platform::recovery_directory();
     let settings = load_settings(settings_path.as_deref());
-    let state = Rc::new(RefCell::new(AppState::with_settings(settings)));
+    let recent_files = recent_path
+        .as_deref()
+        .and_then(|path| recent_store::load(path).ok())
+        .unwrap_or_default();
+    let state = Rc::new(RefCell::new(AppState::with_settings_and_recent(
+        settings,
+        recent_files,
+    )));
     let docs = Rc::new(RefCell::new(None));
     let sheets = Rc::new(RefCell::new(None));
     let slides = Rc::new(RefCell::new(None));
@@ -55,6 +68,13 @@ fn main() -> Result<(), slint::PlatformError> {
     bind_sheets_actions(&ui, Rc::clone(&state), Rc::clone(&sheets));
     bind_slides_actions(&ui, Rc::clone(&state), Rc::clone(&slides));
     bind_settings(&ui, Rc::clone(&state), settings_path.clone());
+    bind_native_actions(
+        &ui,
+        Rc::clone(&state),
+        Rc::clone(&docs),
+        Rc::clone(&sheets),
+        Rc::clone(&slides),
+    );
 
     if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from) {
         if is_docx_path(&path) {
@@ -72,14 +92,81 @@ fn main() -> Result<(), slint::PlatformError> {
             );
         }
     } else {
-        sync_ui(&state.borrow(), &ui);
-        sync_docs_ui(docs.borrow().as_ref(), &ui);
-        sync_sheets_ui(sheets.borrow().as_ref(), &ui);
-        sync_slides_ui(slides.borrow().as_ref(), &ui);
+        let recovered = recovery_directory.as_deref().is_some_and(|root| {
+            restore_latest_recovery(root, &state, &docs, &sheets, &slides, &ui)
+        });
+        if !recovered {
+            sync_ui(&state.borrow(), &ui);
+            sync_docs_ui(docs.borrow().as_ref(), &ui);
+            sync_sheets_ui(sheets.borrow().as_ref(), &ui);
+            sync_slides_ui(slides.borrow().as_ref(), &ui);
+        }
     }
 
     ui.set_shell_init_text(format!("{:.1} ms", startup.elapsed().as_secs_f64() * 1000.0).into());
     ui.run()
+}
+
+fn restore_latest_recovery(
+    root: &Path,
+    state: &SharedState,
+    docs: &SharedDocs,
+    sheets: &SharedSheets,
+    slides: &SharedSlides,
+    ui: &AppWindow,
+) -> bool {
+    let Ok(Some(candidate)) = recovery_store::latest_candidate(root) else {
+        return false;
+    };
+
+    let restored = match candidate.kind {
+        RecoveryKind::Docs => DocsSession::open_recovery(candidate.snapshot, candidate.original)
+            .map(|session| {
+                *docs.borrow_mut() = Some(session);
+                state.borrow_mut().apply(AppCommand::New(EditorKind::Docs));
+            })
+            .map_err(|error| error.to_string()),
+        RecoveryKind::Sheets => {
+            SheetsSession::open_recovery(candidate.snapshot, candidate.original)
+                .map(|session| {
+                    *sheets.borrow_mut() = Some(session);
+                    state
+                        .borrow_mut()
+                        .apply(AppCommand::New(EditorKind::Sheets));
+                })
+                .map_err(|error| error.to_string())
+        }
+        RecoveryKind::Slides => {
+            SlidesSession::open_recovery(candidate.snapshot, candidate.original)
+                .map(|session| {
+                    *slides.borrow_mut() = Some(session);
+                    state
+                        .borrow_mut()
+                        .apply(AppCommand::New(EditorKind::Slides));
+                })
+                .map_err(|error| error.to_string())
+        }
+    };
+
+    match restored {
+        Ok(()) => {
+            state
+                .borrow_mut()
+                .set_status("Recovered unsaved work from the previous session");
+            sync_ui(&state.borrow(), ui);
+            sync_docs_ui(docs.borrow().as_ref(), ui);
+            sync_sheets_ui(sheets.borrow().as_ref(), ui);
+            sync_slides_ui(slides.borrow().as_ref(), ui);
+            true
+        }
+        Err(error) => {
+            state
+                .borrow_mut()
+                .set_status(format!("Recovery failed: {error}"));
+            sync_ui(&state.borrow(), ui);
+            false
+        }
+    }
 }
 
 fn load_settings(path: Option<&Path>) -> AppSettings {
@@ -812,6 +899,272 @@ fn bind_slides_actions(ui: &AppWindow, state: SharedState, slides: SharedSlides)
     }
 }
 
+fn bind_native_actions(
+    ui: &AppWindow,
+    state: SharedState,
+    docs: SharedDocs,
+    sheets: SharedSheets,
+    slides: SharedSlides,
+) {
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_native_open(move || match native_integration::choose_open_file() {
+            Ok(Some(path)) => {
+                open_office_path(&state, &docs, &sheets, &slides, &ui_weak, path);
+            }
+            Ok(None) => {}
+            Err(error) => {
+                state
+                    .borrow_mut()
+                    .set_status(format!("Native open dialog failed: {error}"));
+                if let Some(ui) = ui_weak.upgrade() {
+                    sync_ui(&state.borrow(), &ui);
+                }
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_open_recent(move |path| {
+            open_office_path(
+                &state,
+                &docs,
+                &sheets,
+                &slides,
+                &ui_weak,
+                PathBuf::from(path.as_str()),
+            );
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_drop_office_data(move |data| match data.plain_text() {
+            Ok(value) => {
+                if let Some(path) = path_from_drop_text(value.as_str()) {
+                    open_office_path(&state, &docs, &sheets, &slides, &ui_weak, path);
+                } else {
+                    state
+                        .borrow_mut()
+                        .set_status("Dropped data does not contain an Office file path");
+                    if let Some(ui) = ui_weak.upgrade() {
+                        sync_ui(&state.borrow(), &ui);
+                    }
+                }
+            }
+            Err(error) => {
+                state
+                    .borrow_mut()
+                    .set_status(format!("Dropped data could not be read: {error}"));
+                if let Some(ui) = ui_weak.upgrade() {
+                    sync_ui(&state.borrow(), &ui);
+                }
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_native_save_as(move || {
+            let editor = state.borrow().active_editor();
+            let (extension, suggested) = match editor {
+                Some(EditorKind::Docs) => (
+                    "docx",
+                    docs.borrow()
+                        .as_ref()
+                        .map_or_else(|| "Untitled.docx".to_owned(), DocsSession::title),
+                ),
+                Some(EditorKind::Sheets) => (
+                    "xlsx",
+                    sheets
+                        .borrow()
+                        .as_ref()
+                        .map_or_else(|| "Untitled.xlsx".to_owned(), SheetsSession::title),
+                ),
+                Some(EditorKind::Slides) => (
+                    "pptx",
+                    slides
+                        .borrow()
+                        .as_ref()
+                        .map_or_else(|| "Untitled.pptx".to_owned(), SlidesSession::title),
+                ),
+                None => return,
+            };
+
+            match native_integration::choose_save_file(extension, &suggested) {
+                Ok(Some(path)) => match editor {
+                    Some(EditorKind::Docs) => {
+                        apply_docs_operation(&state, &docs, &ui_weak, move |session| {
+                            session.save_as(path)?;
+                            Ok(format!("Saved {}", session.title()))
+                        });
+                    }
+                    Some(EditorKind::Sheets) => {
+                        apply_sheets_operation(&state, &sheets, &ui_weak, move |session| {
+                            session.save_as(path)?;
+                            Ok(format!("Saved {}", session.title()))
+                        });
+                    }
+                    Some(EditorKind::Slides) => {
+                        apply_slides_operation(&state, &slides, &ui_weak, move |session| {
+                            session.save_as(path)?;
+                            Ok(format!("Saved {}", session.title()))
+                        });
+                    }
+                    None => {}
+                },
+                Ok(None) => {}
+                Err(error) => {
+                    state
+                        .borrow_mut()
+                        .set_status(format!("Native save dialog failed: {error}"));
+                    if let Some(ui) = ui_weak.upgrade() {
+                        sync_ui(&state.borrow(), &ui);
+                    }
+                }
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_native_print(move || {
+            let current = current_file(&state.borrow(), &docs, &sheets, &slides);
+            match current {
+                Some((_, true)) => state
+                    .borrow_mut()
+                    .set_status("Save current changes before printing"),
+                Some((path, false)) => match native_integration::print_file(&path) {
+                    Ok(()) => state
+                        .borrow_mut()
+                        .set_status("Sent document to native print queue"),
+                    Err(error) => state
+                        .borrow_mut()
+                        .set_status(format!("Native print failed: {error}")),
+                },
+                None => state
+                    .borrow_mut()
+                    .set_status("Save the document before printing"),
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                sync_ui(&state.borrow(), &ui);
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let sheets = Rc::clone(&sheets);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_native_copy_path(move || {
+            let current = current_file(&state.borrow(), &docs, &sheets, &slides);
+            match current {
+                Some((path, _)) => match native_integration::copy_text(&path.to_string_lossy()) {
+                    Ok(()) => state.borrow_mut().set_status("File path copied"),
+                    Err(error) => state
+                        .borrow_mut()
+                        .set_status(format!("Clipboard command failed: {error}")),
+                },
+                None => state.borrow_mut().set_status("No saved file path to copy"),
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                sync_ui(&state.borrow(), &ui);
+            }
+        });
+    }
+}
+
+fn path_from_drop_text(value: &str) -> Option<PathBuf> {
+    let first = value.lines().map(str::trim).find(|line| !line.is_empty())?;
+    let decoded = first
+        .strip_prefix("file://")
+        .unwrap_or(first)
+        .replace("%20", " ")
+        .replace("%23", "#");
+    let path = if cfg!(target_os = "windows")
+        && decoded.starts_with('/')
+        && decoded.as_bytes().get(2) == Some(&b':')
+    {
+        PathBuf::from(&decoded[1..])
+    } else {
+        PathBuf::from(decoded)
+    };
+    (is_docx_path(&path) || is_xlsx_path(&path) || is_pptx_path(&path)).then_some(path)
+}
+
+fn open_office_path(
+    state: &SharedState,
+    docs: &SharedDocs,
+    sheets: &SharedSheets,
+    slides: &SharedSlides,
+    ui: &slint::Weak<AppWindow>,
+    path: PathBuf,
+) {
+    if is_docx_path(&path) {
+        open_docs_path(state, docs, ui, path);
+    } else if is_xlsx_path(&path) {
+        open_sheets_path(state, sheets, ui, path);
+    } else if is_pptx_path(&path) {
+        open_slides_path(state, slides, ui, path);
+    } else {
+        state
+            .borrow_mut()
+            .set_status("Unsupported Office file type");
+        if let Some(ui) = ui.upgrade() {
+            sync_ui(&state.borrow(), &ui);
+        }
+    }
+}
+
+fn current_file(
+    state: &AppState,
+    docs: &SharedDocs,
+    sheets: &SharedSheets,
+    slides: &SharedSlides,
+) -> Option<(PathBuf, bool)> {
+    match state.active_editor() {
+        Some(EditorKind::Docs) => docs.borrow().as_ref().and_then(|session| {
+            session
+                .path()
+                .map(|path| (path.to_path_buf(), session.is_dirty()))
+        }),
+        Some(EditorKind::Sheets) => sheets.borrow().as_ref().and_then(|session| {
+            session
+                .path()
+                .map(|path| (path.to_path_buf(), session.is_dirty()))
+        }),
+        Some(EditorKind::Slides) => slides.borrow().as_ref().and_then(|session| {
+            session
+                .path()
+                .map(|path| (path.to_path_buf(), session.is_dirty()))
+        }),
+        None => None,
+    }
+}
+
 fn bind_settings(ui: &AppWindow, state: SharedState, settings_path: Option<PathBuf>) {
     {
         let state = Rc::clone(&state);
@@ -877,6 +1230,10 @@ fn open_docs_path(
                     state.set_status(format!("Opened {}", session.title()));
                 }
             }
+            persist_recent_files(&state.borrow());
+            if let Some(root) = platform::recovery_directory().as_deref() {
+                let _ = recovery_store::clear(root, RecoveryKind::Docs);
+            }
             if let Some(ui) = ui.upgrade() {
                 if let Some(session) = docs.borrow().as_ref() {
                     ui.set_docs_path_input(session.path_text().into());
@@ -912,6 +1269,10 @@ fn open_slides_path(
                     state.set_status(format!("Opened {}", session.title()));
                 }
             }
+            persist_recent_files(&state.borrow());
+            if let Some(root) = platform::recovery_directory().as_deref() {
+                let _ = recovery_store::clear(root, RecoveryKind::Slides);
+            }
             if let Some(ui) = ui.upgrade() {
                 if let Some(session) = slides.borrow().as_ref() {
                     ui.set_slides_path_input(session.path_text().into());
@@ -946,6 +1307,10 @@ fn open_sheets_path(
                 if let Some(session) = sheets.borrow().as_ref() {
                     state.set_status(format!("Opened {}", session.title()));
                 }
+            }
+            persist_recent_files(&state.borrow());
+            if let Some(root) = platform::recovery_directory().as_deref() {
+                let _ = recovery_store::clear(root, RecoveryKind::Sheets);
             }
             if let Some(ui) = ui.upgrade() {
                 if let Some(session) = sheets.borrow().as_ref() {
@@ -987,6 +1352,10 @@ fn apply_slides_operation(
             .set_status(format!("Slides command failed: {error}")),
     }
 
+    if let Some(session) = slides.borrow_mut().as_mut() {
+        maintain_slides_recovery(session);
+    }
+
     if let Some(ui) = ui.upgrade() {
         sync_ui(&state.borrow(), &ui);
         sync_slides_ui(slides.borrow().as_ref(), &ui);
@@ -1014,6 +1383,10 @@ fn apply_sheets_operation(
             .set_status(format!("Sheets command failed: {error}")),
     }
 
+    if let Some(session) = sheets.borrow_mut().as_mut() {
+        maintain_sheets_recovery(session);
+    }
+
     if let Some(ui) = ui.upgrade() {
         sync_ui(&state.borrow(), &ui);
         sync_sheets_ui(sheets.borrow().as_ref(), &ui);
@@ -1039,6 +1412,10 @@ fn apply_docs_operation(
         Err(error) => state
             .borrow_mut()
             .set_status(format!("Docs command failed: {error}")),
+    }
+
+    if let Some(session) = docs.borrow_mut().as_mut() {
+        maintain_docs_recovery(session);
     }
 
     if let Some(ui) = ui.upgrade() {
@@ -1088,6 +1465,91 @@ fn update_state(
     }
 }
 
+fn persist_recent_files(state: &AppState) {
+    let Some(path) = platform::recent_files_path() else {
+        return;
+    };
+    if let Err(error) = recent_store::save(&path, state.recent_files()) {
+        eprintln!("failed to persist recent files: {error}");
+    }
+}
+
+fn maintain_docs_recovery(session: &mut DocsSession) {
+    let original = session.path().map(Path::to_path_buf);
+    maintain_recovery(
+        RecoveryKind::Docs,
+        original.as_deref(),
+        session.is_dirty(),
+        session.can_save(),
+        |path| {
+            session
+                .save_recovery_copy(path)
+                .map_err(|error| error.to_string())
+        },
+    );
+}
+
+fn maintain_sheets_recovery(session: &mut SheetsSession) {
+    let original = session.path().map(Path::to_path_buf);
+    maintain_recovery(
+        RecoveryKind::Sheets,
+        original.as_deref(),
+        session.is_dirty(),
+        session.can_save(),
+        |path| {
+            session
+                .save_recovery_copy(path)
+                .map_err(|error| error.to_string())
+        },
+    );
+}
+
+fn maintain_slides_recovery(session: &mut SlidesSession) {
+    let original = session.path().map(Path::to_path_buf);
+    maintain_recovery(
+        RecoveryKind::Slides,
+        original.as_deref(),
+        session.is_dirty(),
+        session.can_save(),
+        |path| {
+            session
+                .save_recovery_copy(path)
+                .map_err(|error| error.to_string())
+        },
+    );
+}
+
+fn maintain_recovery(
+    kind: RecoveryKind,
+    original: Option<&Path>,
+    dirty: bool,
+    can_save: bool,
+    save_snapshot: impl FnOnce(&Path) -> Result<(), String>,
+) {
+    let Some(root) = platform::recovery_directory() else {
+        return;
+    };
+
+    if !dirty {
+        if let Err(error) = recovery_store::clear(&root, kind) {
+            eprintln!("failed to clear recovery snapshot: {error}");
+        }
+        return;
+    }
+    if !can_save || !recovery_store::should_snapshot(&root, kind) {
+        return;
+    }
+
+    let snapshot = recovery_store::snapshot_path(&root, kind);
+    if let Err(error) = save_snapshot(&snapshot) {
+        eprintln!("failed to write recovery snapshot: {error}");
+        return;
+    }
+    if let Err(error) = recovery_store::record(&root, kind, original) {
+        eprintln!("failed to write recovery metadata: {error}");
+    }
+}
+
 fn persist_settings_if_available(
     settings_path: Option<&Path>,
     settings: &AppSettings,
@@ -1120,6 +1582,20 @@ fn sync_ui(state: &AppState, ui: &AppWindow) {
     ui.set_status_text(localize_status(state.status(), is_chinese).into());
     ui.set_show_status_bar(state.settings().show_status_bar());
     ui.set_compact_navigation(state.settings().compact_navigation());
+    let recent = state
+        .recent_files()
+        .iter()
+        .take(3)
+        .map(|path| RecentFileRow {
+            label: path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("Office file")
+                .into(),
+            path: path.to_string_lossy().into_owned().into(),
+        })
+        .collect::<Vec<_>>();
+    ui.set_recent_files(Rc::new(slint::VecModel::from(recent)).into());
 }
 
 fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
@@ -1490,6 +1966,18 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
 
     match status {
         "Native shell ready" => "原生工作区已就绪".to_owned(),
+        "Recovered unsaved work from the previous session" => {
+            "已恢复上次会话中未保存的内容".to_owned()
+        }
+        "Save current changes before printing" => "打印前请先保存当前更改".to_owned(),
+        "Sent document to native print queue" => "已发送到系统打印队列".to_owned(),
+        "Save the document before printing" => "打印前请先保存文件".to_owned(),
+        "File path copied" => "已复制文件路径".to_owned(),
+        "No saved file path to copy" => "当前没有可复制的已保存文件路径".to_owned(),
+        "Unsupported Office file type" => "不支持的 Office 文件类型".to_owned(),
+        "Dropped data does not contain an Office file path" => {
+            "拖入的数据中没有可打开的 Office 文件路径".to_owned()
+        }
         "Home" => "首页".to_owned(),
         "Diagnostics" => "诊断".to_owned(),
         "Settings" => "设置".to_owned(),
@@ -1614,6 +2102,19 @@ mod tests {
         );
         assert_eq!(localize_status("Replaced 4 match(es)", true), "已替换 4 处");
         assert_eq!(localize_status("7 match(es)", true), "找到 7 处匹配");
+    }
+
+    #[test]
+    fn dropped_paths_accept_office_paths_and_file_uris() {
+        assert_eq!(
+            path_from_drop_text("/tmp/report.docx"),
+            Some(PathBuf::from("/tmp/report.docx"))
+        );
+        assert_eq!(
+            path_from_drop_text("file:///tmp/Quarter%20Plan.xlsx"),
+            Some(PathBuf::from("/tmp/Quarter Plan.xlsx"))
+        );
+        assert!(path_from_drop_text("/tmp/image.png").is_none());
     }
 
     #[test]

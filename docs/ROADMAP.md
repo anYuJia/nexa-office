@@ -161,7 +161,7 @@ Exit criteria:
 
 ## Phase 6 — Fidelity and Interoperability Hardening
 
-Status: **In progress**.
+Status: **Completed**.
 
 Planning window: 8-12 weeks, then ongoing.
 
@@ -186,6 +186,8 @@ Exit criteria:
 - round-trip score improves without performance-budget regressions.
 
 ## Phase 7 — Native Product Integration
+
+Status: **Completed**.
 
 Planning window: 4-6 weeks.
 
