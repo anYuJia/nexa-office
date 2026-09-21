@@ -151,11 +151,6 @@ impl DocsSession {
     }
 
     #[must_use]
-    pub fn undo_depth(&self) -> usize {
-        self.editor.undo_depth()
-    }
-
-    #[must_use]
     pub fn current_bold(&self) -> bool {
         self.current_run_flag(|properties| properties.bold)
     }
