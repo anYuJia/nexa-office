@@ -290,6 +290,15 @@ impl Presentation {
         &mut self.slides
     }
 
+    pub fn replace_slides(&mut self, slides: Vec<Slide>) -> Result<(), PresentationError> {
+        if slides.is_empty() {
+            return Err(PresentationError::MissingSlide(0));
+        }
+        self.slides = slides;
+        self.active_slide = self.active_slide.min(self.slides.len() - 1);
+        Ok(())
+    }
+
     #[must_use]
     pub const fn active_slide(&self) -> usize {
         self.active_slide
