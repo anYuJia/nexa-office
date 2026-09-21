@@ -1205,9 +1205,10 @@ fn persist_recent_files(state: &AppState) {
 }
 
 fn maintain_docs_recovery(session: &mut DocsSession) {
+    let original = session.path().map(Path::to_path_buf);
     maintain_recovery(
         RecoveryKind::Docs,
-        session.path(),
+        original.as_deref(),
         session.is_dirty(),
         session.can_save(),
         |path| session.save_recovery_copy(path).map_err(|error| error.to_string()),
@@ -1215,9 +1216,10 @@ fn maintain_docs_recovery(session: &mut DocsSession) {
 }
 
 fn maintain_sheets_recovery(session: &mut SheetsSession) {
+    let original = session.path().map(Path::to_path_buf);
     maintain_recovery(
         RecoveryKind::Sheets,
-        session.path(),
+        original.as_deref(),
         session.is_dirty(),
         session.can_save(),
         |path| session.save_recovery_copy(path).map_err(|error| error.to_string()),
@@ -1225,9 +1227,10 @@ fn maintain_sheets_recovery(session: &mut SheetsSession) {
 }
 
 fn maintain_slides_recovery(session: &mut SlidesSession) {
+    let original = session.path().map(Path::to_path_buf);
     maintain_recovery(
         RecoveryKind::Slides,
-        session.path(),
+        original.as_deref(),
         session.is_dirty(),
         session.can_save(),
         |path| session.save_recovery_copy(path).map_err(|error| error.to_string()),
