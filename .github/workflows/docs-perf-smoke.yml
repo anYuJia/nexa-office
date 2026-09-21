@@ -1,0 +1,85 @@
+name: Docs Performance Smoke
+
+on:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/nexa-docs/**"
+      - "crates/nexa-ooxml/**"
+      - ".github/workflows/docs-perf-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-perf-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux-docs-smoke:
+    name: Linux Docs 20-page smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: docs-release-perf
+
+      - name: Build release Docs benchmark
+        run: cargo build --release --locked -p nexa-docs --example phase3_perf
+
+      - name: Run Docs benchmark
+        shell: bash
+        run: |
+          mkdir -p perf-results
+          /usr/bin/time -v target/release/examples/phase3_perf             > perf-results/docs-phase3.txt             2> perf-results/docs-time.txt
+          cat perf-results/docs-phase3.txt
+          cat perf-results/docs-time.txt
+
+      - name: Enforce Phase 3 shared-runner gates
+        shell: bash
+        run: |
+          rss_kb="$(awk -F: '/Maximum resident set size/ { gsub(/^[ 	]+|[ 	]+$/, "", $2); print $2 }' perf-results/docs-time.txt)"
+          layout_us="$(awk -F= '/^layout_us=/ { print $2 }' perf-results/docs-phase3.txt)"
+          edit_us="$(awk -F= '/^edit_us=/ { print $2 }' perf-results/docs-phase3.txt)"
+          reopen_us="$(awk -F= '/^reopen_us=/ { print $2 }' perf-results/docs-phase3.txt)"
+          edited_save_us="$(awk -F= '/^edited_save_us=/ { print $2 }' perf-results/docs-phase3.txt)"
+
+          max_rss_kb=102400
+          max_layout_us=1000000
+          max_edit_us=200000
+          max_open_us=2000000
+          max_save_us=3000000
+
+          {
+            echo "peak_rss_kb=$rss_kb"
+            echo "ci_peak_rss_limit_kb=$max_rss_kb"
+            echo "ci_layout_limit_us=$max_layout_us"
+            echo "ci_edit_limit_us=$max_edit_us"
+            echo "ci_open_limit_us=$max_open_us"
+            echo "ci_save_limit_us=$max_save_us"
+          } | tee -a perf-results/docs-phase3.txt
+
+          [[ -n "$rss_kb" ]] && (( rss_kb <= max_rss_kb ))
+          (( layout_us <= max_layout_us ))
+          (( edit_us <= max_edit_us ))
+          (( reopen_us <= max_open_us ))
+          (( edited_save_us <= max_save_us ))
+
+      - name: Upload Docs performance artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-phase3-perf
+          path: perf-results/
+          if-no-files-found: error

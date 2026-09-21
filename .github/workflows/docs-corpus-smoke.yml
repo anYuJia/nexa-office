@@ -1,0 +1,57 @@
+name: Docs Corpus Smoke
+
+on:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/nexa-docs/**"
+      - "crates/nexa-ooxml/**"
+      - ".github/workflows/docs-corpus-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-corpus-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  PYTHON_DOCX_COMMIT: e45454602b53e8e572b179ccf1c91093ec9f4ed7
+
+jobs:
+  corpus:
+    name: Pinned external DOCX corpus
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: docs-corpus
+
+      - name: Download pinned MIT-licensed python-docx samples
+        shell: bash
+        run: |
+          mkdir -p target/docs-corpus
+          base="https://raw.githubusercontent.com/python-openxml/python-docx/$PYTHON_DOCX_COMMIT/tests/test_files"
+          curl --fail --location --silent --show-error "$base/test.docx" -o target/docs-corpus/test.docx
+          curl --fail --location --silent --show-error "$base/having-images.docx" -o target/docs-corpus/having-images.docx
+          curl --fail --location --silent --show-error "$base/blk-inner-content.docx" -o target/docs-corpus/blk-inner-content.docx
+
+      - name: Build corpus smoke
+        run: cargo build --release --locked -p nexa-docs --example corpus_smoke
+
+      - name: Open and paginate external DOCX corpus
+        run: >
+          target/release/examples/corpus_smoke
+          target/docs-corpus/test.docx
+          target/docs-corpus/having-images.docx
+          target/docs-corpus/blk-inner-content.docx
