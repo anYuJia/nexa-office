@@ -136,11 +136,6 @@ impl SlidesSession {
     }
 
     #[must_use]
-    pub const fn selected_element(&self) -> Option<usize> {
-        self.selected_element
-    }
-
-    #[must_use]
     pub fn element_summaries(&self) -> Vec<SlideElementSummary> {
         self.pptx
             .presentation()
