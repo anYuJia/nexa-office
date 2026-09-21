@@ -23,9 +23,9 @@ The exact dependency set is not frozen. New foundational dependencies require an
 
 ## Status
 
-Nexa Office has completed **Phase 4 — Nexa Sheets MVP**. Docs and Sheets now both have native Rust semantic engines and native Slint workspaces.
+Nexa Office has completed **Phase 4 — Nexa Sheets MVP** and is validating **Phase 5 — Nexa Slides MVP**. Docs, Sheets and Slides now have native Rust semantic engines and native Slint workspaces.
 
-The native Rust/Slint application includes real Docs and Sheets workspaces. Docs provides safe DOCX editing, formatting, search/replace, undo/redo and pagination. Sheets provides a sparse XLSX-sized workbook model, a bounded virtualized grid, formulas and deterministic recalculation, formatting, merged cells, row/column sizing, sort/filter, freeze panes, multi-sheet editing and XLSX open/save. The shell remains bilingual (System / 简体中文 / English), accessibility-aware and browser-runtime-free. Unsupported destructive rewrites remain blocked instead of silently losing Office content.
+The native Rust/Slint application includes real Docs, Sheets and Slides workspaces. Docs provides safe DOCX editing, formatting, search/replace, undo/redo and pagination. Sheets provides a sparse XLSX-sized workbook model, a bounded virtualized grid, formulas and deterministic recalculation, formatting, merged cells, row/column sizing, sort/filter, freeze panes, multi-sheet editing and XLSX open/save. Slides provides a native multi-slide model, text boxes, basic shapes, tables, image relationship preservation, z-order editing, slide operations and PPTX open/save with compatibility blocking. The shell remains bilingual (System / 简体中文 / English), accessibility-aware and browser-runtime-free. Unsupported destructive rewrites remain blocked instead of silently losing Office content.
 
 ## Engineering documents
 
@@ -46,6 +46,8 @@ The native Rust/Slint application includes real Docs and Sheets workspaces. Docs
 - [Phase 3 DOCX Corpus](docs/PHASE3_CORPUS.md)
 - [Phase 4 Status](docs/PHASE4_STATUS.md)
 - [Phase 4 Sheets Performance](docs/PHASE4_PERFORMANCE.md)
+- [Phase 5 Status](docs/PHASE5_STATUS.md)
+- [Phase 5 Slides Performance](docs/PHASE5_PERFORMANCE.md)
 - [UI / UX and localization](docs/UI_UX_I18N.md)
 - [Architecture Decisions](docs/adr/README.md)
 - [Contribution Guide](CONTRIBUTING.md)
