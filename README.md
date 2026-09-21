@@ -48,6 +48,7 @@ The native Rust/Slint application includes real Docs, Sheets and Slides workspac
 - [Phase 4 Sheets Performance](docs/PHASE4_PERFORMANCE.md)
 - [Phase 5 Status](docs/PHASE5_STATUS.md)
 - [Phase 5 Slides Performance](docs/PHASE5_PERFORMANCE.md)
+- [Phase 6 Status](docs/PHASE6_STATUS.md)
 - [Phase 6 Fidelity Status](docs/PHASE6_STATUS.md)
 - [UI / UX and localization](docs/UI_UX_I18N.md)
 - [Architecture Decisions](docs/adr/README.md)
