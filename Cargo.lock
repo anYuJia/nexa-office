@@ -2570,6 +2570,14 @@ name = "nexa-core"
 version = "0.1.0"
 
 [[package]]
+name = "nexa-docs"
+version = "0.1.0"
+dependencies = [
+ "nexa-ooxml",
+ "quick-xml 0.42.0",
+]
+
+[[package]]
 name = "nexa-ooxml"
 version = "0.1.0"
 dependencies = [
