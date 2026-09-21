@@ -92,16 +92,9 @@ fn main() -> Result<(), slint::PlatformError> {
             );
         }
     } else {
-        let recovered = recovery_directory.as_deref().is_some_and(|root| {
-            restore_latest_recovery(
-                root,
-                &state,
-                &docs,
-                &sheets,
-                &slides,
-                &ui,
-            )
-        });
+        let recovered = recovery_directory
+            .as_deref()
+            .is_some_and(|root| restore_latest_recovery(root, &state, &docs, &sheets, &slides, &ui));
         if !recovered {
             sync_ui(&state.borrow(), &ui);
             sync_docs_ui(docs.borrow().as_ref(), &ui);
@@ -137,7 +130,9 @@ fn restore_latest_recovery(
             SheetsSession::open_recovery(candidate.snapshot, candidate.original)
                 .map(|session| {
                     *sheets.borrow_mut() = Some(session);
-                    state.borrow_mut().apply(AppCommand::New(EditorKind::Sheets));
+                    state
+                        .borrow_mut()
+                        .apply(AppCommand::New(EditorKind::Sheets));
                 })
                 .map_err(|error| error.to_string())
         }
@@ -145,7 +140,9 @@ fn restore_latest_recovery(
             SlidesSession::open_recovery(candidate.snapshot, candidate.original)
                 .map(|session| {
                     *slides.borrow_mut() = Some(session);
-                    state.borrow_mut().apply(AppCommand::New(EditorKind::Slides));
+                    state
+                        .borrow_mut()
+                        .apply(AppCommand::New(EditorKind::Slides));
                 })
                 .map_err(|error| error.to_string())
         }
@@ -1029,7 +1026,9 @@ fn bind_native_actions(
                     .borrow_mut()
                     .set_status("Save current changes before printing"),
                 Some((path, false)) => match native_integration::print_file(&path) {
-                    Ok(()) => state.borrow_mut().set_status("Sent document to native print queue"),
+                    Ok(()) => state
+                        .borrow_mut()
+                        .set_status("Sent document to native print queue"),
                     Err(error) => state
                         .borrow_mut()
                         .set_status(format!("Native print failed: {error}")),
@@ -1099,18 +1098,21 @@ fn current_file(
     slides: &SharedSlides,
 ) -> Option<(PathBuf, bool)> {
     match state.active_editor() {
-        Some(EditorKind::Docs) => docs
-            .borrow()
-            .as_ref()
-            .and_then(|session| session.path().map(|path| (path.to_path_buf(), session.is_dirty()))),
-        Some(EditorKind::Sheets) => sheets
-            .borrow()
-            .as_ref()
-            .and_then(|session| session.path().map(|path| (path.to_path_buf(), session.is_dirty()))),
-        Some(EditorKind::Slides) => slides
-            .borrow()
-            .as_ref()
-            .and_then(|session| session.path().map(|path| (path.to_path_buf(), session.is_dirty()))),
+        Some(EditorKind::Docs) => docs.borrow().as_ref().and_then(|session| {
+            session
+                .path()
+                .map(|path| (path.to_path_buf(), session.is_dirty()))
+        }),
+        Some(EditorKind::Sheets) => sheets.borrow().as_ref().and_then(|session| {
+            session
+                .path()
+                .map(|path| (path.to_path_buf(), session.is_dirty()))
+        }),
+        Some(EditorKind::Slides) => slides.borrow().as_ref().and_then(|session| {
+            session
+                .path()
+                .map(|path| (path.to_path_buf(), session.is_dirty()))
+        }),
         None => None,
     }
 }
@@ -1431,7 +1433,11 @@ fn maintain_docs_recovery(session: &mut DocsSession) {
         original.as_deref(),
         session.is_dirty(),
         session.can_save(),
-        |path| session.save_recovery_copy(path).map_err(|error| error.to_string()),
+        |path| {
+            session
+                .save_recovery_copy(path)
+                .map_err(|error| error.to_string())
+        },
     );
 }
 
@@ -1442,7 +1448,11 @@ fn maintain_sheets_recovery(session: &mut SheetsSession) {
         original.as_deref(),
         session.is_dirty(),
         session.can_save(),
-        |path| session.save_recovery_copy(path).map_err(|error| error.to_string()),
+        |path| {
+            session
+                .save_recovery_copy(path)
+                .map_err(|error| error.to_string())
+        },
     );
 }
 
@@ -1453,7 +1463,11 @@ fn maintain_slides_recovery(session: &mut SlidesSession) {
         original.as_deref(),
         session.is_dirty(),
         session.can_save(),
-        |path| session.save_recovery_copy(path).map_err(|error| error.to_string()),
+        |path| {
+            session
+                .save_recovery_copy(path)
+                .map_err(|error| error.to_string())
+        },
     );
 }
 
@@ -1904,7 +1918,9 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
 
     match status {
         "Native shell ready" => "原生工作区已就绪".to_owned(),
-        "Recovered unsaved work from the previous session" => "已恢复上次会话中未保存的内容".to_owned(),
+        "Recovered unsaved work from the previous session" => {
+            "已恢复上次会话中未保存的内容".to_owned()
+        }
         "Save current changes before printing" => "打印前请先保存当前更改".to_owned(),
         "Sent document to native print queue" => "已发送到系统打印队列".to_owned(),
         "Save the document before printing" => "打印前请先保存文件".to_owned(),
