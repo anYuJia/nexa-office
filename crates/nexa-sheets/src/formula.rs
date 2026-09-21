@@ -232,6 +232,265 @@ impl<'a> Parser<'a> {
         while self
             .peek()
             .is_some_and(|value| value.is_ascii_alphanumeric() || matches!(value, '_' | '
+    }
+
+    fn read_cell_reference(&mut self) -> Result<CellAddress, FormulaError> {
+        self.skip_space();
+        let start = self.index;
+        let token = self.read_identifier_or_cell();
+        if token.is_empty() {
+            self.index = start;
+            return Err(self.invalid());
+        }
+        match CellAddress::parse_a1(&token) {
+            Ok(address) => Ok(address),
+            Err(_) => {
+                self.index = start;
+                Err(self.invalid())
+            }
+        }
+    }
+
+    fn expect(&mut self, expected: char) -> Result<(), FormulaError> {
+        self.skip_space();
+        if self.consume(expected) {
+            Ok(())
+        } else {
+            Err(self.invalid())
+        }
+    }
+
+    fn consume(&mut self, expected: char) -> bool {
+        if self.peek() == Some(expected) {
+            self.index += expected.len_utf8();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn skip_space(&mut self) {
+        while self.peek().is_some_and(char::is_whitespace) {
+            self.index += self.peek().unwrap().len_utf8();
+        }
+    }
+
+    fn peek(&self) -> Option<char> {
+        self.source[self.index..].chars().next()
+    }
+
+    fn invalid(&self) -> FormulaError {
+        FormulaError::InvalidSyntax(self.source.to_owned())
+    }
+}
+
+fn aggregate(name: &str, values: &[f64]) -> Option<f64> {
+    match name.to_ascii_uppercase().as_str() {
+        "SUM" => Some(values.iter().sum()),
+        "AVERAGE" => {
+            if values.is_empty() {
+                Some(0.0)
+            } else {
+                Some(values.iter().sum::<f64>() / values.len() as f64)
+            }
+        }
+        "MIN" => values.iter().copied().reduce(f64::min).or(Some(0.0)),
+        "MAX" => values.iter().copied().reduce(f64::max).or(Some(0.0)),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Workbook;
+
+    #[test]
+    fn arithmetic_references_ranges_and_functions_recalculate() {
+        let mut workbook = Workbook::blank();
+        workbook
+            .set_cell_input(0, CellAddress::parse_a1("A1").unwrap(), "10")
+            .unwrap();
+        workbook
+            .set_cell_input(0, CellAddress::parse_a1("A2").unwrap(), "20")
+            .unwrap();
+        workbook
+            .set_cell_input(
+                0,
+                CellAddress::parse_a1("B1").unwrap(),
+                "=SUM(A1:A2) * 2 + 5",
+            )
+            .unwrap();
+
+        assert_eq!(
+            workbook
+                .sheet(0)
+                .unwrap()
+                .cell(CellAddress::parse_a1("B1").unwrap())
+                .unwrap()
+                .cached_number,
+            Some(65.0)
+        );
+    }
+
+    #[test]
+    fn circular_references_are_rejected() {
+        let mut workbook = Workbook::blank();
+        workbook
+            .sheet_mut(0)
+            .unwrap()
+            .set_input(CellAddress::parse_a1("A1").unwrap(), "=B1");
+        workbook
+            .sheet_mut(0)
+            .unwrap()
+            .set_input(CellAddress::parse_a1("B1").unwrap(), "=A1");
+
+        let mut stack = BTreeSet::new();
+        let error = evaluate_formula(
+            &workbook,
+            0,
+            CellAddress::parse_a1("A1").unwrap(),
+            "B1",
+            &mut stack,
+        )
+        .unwrap_err();
+        assert!(matches!(error, FormulaError::CircularReference(_)));
+    }
+}
+ | '.'))
+        {
+            self.index += self.peek().unwrap().len_utf8();
+        }
+        self.source[start..self.index].to_owned()
+    }
+
+    fn read_cell_reference(&mut self) -> Result<CellAddress, FormulaError> {
+        self.skip_space();
+        let start = self.index;
+        let token = self.read_identifier_or_cell();
+        if token.is_empty() {
+            self.index = start;
+            return Err(self.invalid());
+        }
+        match CellAddress::parse_a1(&token) {
+            Ok(address) => Ok(address),
+            Err(_) => {
+                self.index = start;
+                Err(self.invalid())
+            }
+        }
+    }
+
+    fn expect(&mut self, expected: char) -> Result<(), FormulaError> {
+        self.skip_space();
+        if self.consume(expected) {
+            Ok(())
+        } else {
+            Err(self.invalid())
+        }
+    }
+
+    fn consume(&mut self, expected: char) -> bool {
+        if self.peek() == Some(expected) {
+            self.index += expected.len_utf8();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn skip_space(&mut self) {
+        while self.peek().is_some_and(char::is_whitespace) {
+            self.index += self.peek().unwrap().len_utf8();
+        }
+    }
+
+    fn peek(&self) -> Option<char> {
+        self.source[self.index..].chars().next()
+    }
+
+    fn invalid(&self) -> FormulaError {
+        FormulaError::InvalidSyntax(self.source.to_owned())
+    }
+}
+
+fn aggregate(name: &str, values: &[f64]) -> Option<f64> {
+    match name.to_ascii_uppercase().as_str() {
+        "SUM" => Some(values.iter().sum()),
+        "AVERAGE" => {
+            if values.is_empty() {
+                Some(0.0)
+            } else {
+                Some(values.iter().sum::<f64>() / values.len() as f64)
+            }
+        }
+        "MIN" => values.iter().copied().reduce(f64::min).or(Some(0.0)),
+        "MAX" => values.iter().copied().reduce(f64::max).or(Some(0.0)),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Workbook;
+
+    #[test]
+    fn arithmetic_references_ranges_and_functions_recalculate() {
+        let mut workbook = Workbook::blank();
+        workbook
+            .set_cell_input(0, CellAddress::parse_a1("A1").unwrap(), "10")
+            .unwrap();
+        workbook
+            .set_cell_input(0, CellAddress::parse_a1("A2").unwrap(), "20")
+            .unwrap();
+        workbook
+            .set_cell_input(
+                0,
+                CellAddress::parse_a1("B1").unwrap(),
+                "=SUM(A1:A2) * 2 + 5",
+            )
+            .unwrap();
+
+        assert_eq!(
+            workbook
+                .sheet(0)
+                .unwrap()
+                .cell(CellAddress::parse_a1("B1").unwrap())
+                .unwrap()
+                .cached_number,
+            Some(65.0)
+        );
+    }
+
+    #[test]
+    fn circular_references_are_rejected() {
+        let mut workbook = Workbook::blank();
+        workbook
+            .sheet_mut(0)
+            .unwrap()
+            .set_input(CellAddress::parse_a1("A1").unwrap(), "=B1");
+        workbook
+            .sheet_mut(0)
+            .unwrap()
+            .set_input(CellAddress::parse_a1("B1").unwrap(), "=A1");
+
+        let mut stack = BTreeSet::new();
+        let error = evaluate_formula(
+            &workbook,
+            0,
+            CellAddress::parse_a1("A1").unwrap(),
+            "B1",
+            &mut stack,
+        )
+        .unwrap_err();
+        assert!(matches!(error, FormulaError::CircularReference(_)));
+    }
+}
+ | '.'))
+        {
+            self.index += self.peek().unwrap().len_utf8();
+        }
         self.source[start..self.index].to_owned()
     }
 
