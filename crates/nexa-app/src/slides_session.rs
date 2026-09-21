@@ -333,7 +333,10 @@ impl SlidesSession {
     }
 
     pub fn save(&mut self) -> Result<(), SlidesSessionError> {
-        let path = self.path.clone().ok_or(SlidesSessionError::MissingSavePath)?;
+        let path = self
+            .path
+            .clone()
+            .ok_or(SlidesSessionError::MissingSavePath)?;
         self.save_to(path)
     }
 
