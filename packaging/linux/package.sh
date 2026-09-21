@@ -28,7 +28,7 @@ install -m 0644 "$ROOT/packaging/linux/nexa-office.xml" "$STAGE/usr/share/mime/p
 mkdir -p "$STAGE/DEBIAN"
 cat > "$STAGE/DEBIAN/control" <<EOF
 Package: nexa-office
-Version: $VERSION
+Version: $DEB_VERSION
 Section: office
 Priority: optional
 Architecture: $DEB_ARCH
