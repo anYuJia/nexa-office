@@ -637,7 +637,7 @@ fn parse_slide_xml(
                     "tr" if table_depth > 0 => table_rows.push(current_row.clone()),
                     "tbl" if table_depth > 0 => table_depth = table_depth.saturating_sub(1),
                     "sp" if current_kind == Some("shape") => {
-                        let is_text_only = xml.contains("<p:txBody") && text.len() > 0;
+                        let is_text_only = xml.contains("<p:txBody") && !text.is_empty();
                         if is_text_only && shape_kind == ShapeKind::Rectangle {
                             slide.elements.push(SlideElement::TextBox(TextBox {
                                 bounds,
