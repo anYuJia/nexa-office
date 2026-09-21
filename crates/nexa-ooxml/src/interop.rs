@@ -207,7 +207,7 @@ fn classify_relationship(
         "comments" | "threadedcomment" | "person" => Some(CompatibilityFeature::Comments),
         "notesslide" | "notesmaster" => Some(CompatibilityFeature::Notes),
         "chart" | "chartsheet" => Some(CompatibilityFeature::Chart),
-        "drawing" | "vmlDrawing" => Some(CompatibilityFeature::Drawing),
+        "drawing" | "vmldrawing" => Some(CompatibilityFeature::Drawing),
         "pivottable" | "pivotcachedefinition" | "pivotcacherecords" => {
             Some(CompatibilityFeature::Pivot)
         }
