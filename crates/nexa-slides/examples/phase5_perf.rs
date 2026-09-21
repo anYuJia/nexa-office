@@ -1,8 +1,5 @@
 use nexa_slides::{PptxPresentation, SlideElement, open_pptx, save_pptx};
-use std::{
-    io::Cursor,
-    time::Instant,
-};
+use std::{io::Cursor, time::Instant};
 
 fn main() {
     let mut pptx = PptxPresentation::blank();
