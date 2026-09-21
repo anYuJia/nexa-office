@@ -1685,7 +1685,7 @@ fn push_val(output: &mut String, element: &str, value: &str) {
 fn push_attr(output: &mut String, name: &str, value: &str) {
     output.push(' ');
     output.push_str(name);
-    output.push_str("=\\\"");
+    output.push_str("=\"");
     escape_attribute(output, value);
     output.push('"');
 }
