@@ -20,6 +20,7 @@ Nexa Office 的目标不是把网页编辑器套进桌面壳，而是从底层�
 - Phase 2：OOXML / OPC 基础层
 - Phase 3：Nexa Docs MVP
 - Phase 4：Nexa Sheets MVP
+- Phase 5：Nexa Slides MVP（最终验证中）
 - 原生 UI/UX 现代化与中英文适配
 
 Nexa Docs 当前已经具备真实 DOCX 工作流：
@@ -33,7 +34,7 @@ Nexa Docs 当前已经具备真实 DOCX 工作流：
 - 兼容性检测与危险写入阻止
 - 未修改 OPC Part 的原始压缩数据保留
 
-> Docs 与 Sheets 都采用安全 MVP 边界，并不宣称完整复刻 Microsoft Office。超出当前安全写入范围的复杂 OOXML 会被识别并阻止破坏性保存。
+> Docs、Sheets 与 Slides 都采用安全 MVP 边界，并不宣称完整复刻 Microsoft Office。超出当前安全写入范围的复杂 OOXML 会被识别并阻止破坏性保存。
 
 Nexa Sheets 当前已经具备真实 XLSX 工作流：
 
@@ -47,6 +48,15 @@ Nexa Sheets 当前已经具备真实 XLSX 工作流：
 - 稀疏排序与筛选
 - 多工作表
 - XLSX 打开、原子保存、共享字符串导入与兼容性阻止
+
+Nexa Slides 当前已经具备原生 PPTX 工作流：
+
+- 多幻灯片语义模型与 16:9 原生工作区
+- 文本框、基础形状、表格与图片关系保留
+- 页面新增、复制、删除、前后切换
+- 元素选择、文字编辑、删除与层级调整
+- PPTX 打开、原子保存与重新打开
+- 对动画、图表、OLE、音视频等暂不支持结构执行兼容性阻止，避免破坏性保存
 
 ## UI / UX
 
@@ -89,12 +99,13 @@ cargo fmt --all -- --check
 - `crates/nexa-core`：UI 无关的应用状态
 - `crates/nexa-docs`：DOCX 语义、编辑与布局
 - `crates/nexa-sheets`：XLSX 工作簿、公式、虚拟化与 SpreadsheetML
+- `crates/nexa-slides`：PPTX 演示文稿模型、PresentationML 与 Slides 编辑命令
 - `crates/nexa-ooxml`：OOXML / OPC / ZIP / XML 基础层
 - `docs/`：架构、门禁、路线图、性能与阶段验收记录
 
 ## 后续路线
 
-下一核心阶段是 **Phase 5 — Nexa Slides MVP**，随后是兼容性强化、平台原生集成与 Alpha/Beta/1.0 收口。
+Phase 5 完成后进入 **Phase 6 — 兼容性与互操作强化**，随后进行平台原生集成与 Alpha/Beta/1.0 收口。
 
 详细计划见 [Roadmap](docs/ROADMAP.md)。
 
