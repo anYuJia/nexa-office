@@ -47,11 +47,12 @@ Desktop baseline:
 - preferred window: 1240 × 800;
 - supported minimum: 840 × 560;
 - navigation width is controlled by the persisted compact-navigation preference and does not participate in a self-referential layout loop;
-- editor toolbars enter **dense workspace mode** automatically below 1080 px without changing the persisted navigation preference;
+- persisted compact-navigation mode also switches editor toolbars into **dense workspace mode**;
 - dense mode may replace visible labels with compact symbols, but full accessibility labels remain descriptive;
 - Docs paper, Sheets grid and Slides canvas remain the dominant flexible surfaces;
-- secondary rails shrink before the primary editing surface does;
-- every editing command must remain reachable at the supported minimum size.
+- secondary rails remain bounded so the primary editing surface stays dominant;
+- every editing command must remain reachable at the supported minimum size;
+- root-window geometry must not drive layout properties that feed back into Slint `layout-info`; responsive polish must stay free of self-referential binding loops.
 
 ## Localization
 
