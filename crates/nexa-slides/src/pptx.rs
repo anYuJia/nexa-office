@@ -1,13 +1,13 @@
 use crate::{
-    Image, Presentation, PresentationError, Rect, Shape, ShapeKind, Slide, SlideElement,
-    Table, TableCell, TextBox, TextStyle,
+    Image, Presentation, PresentationError, Rect, Shape, ShapeKind, Slide, SlideElement, Table,
+    TableCell, TextBox, TextStyle,
 };
 use nexa_ooxml::{
     AtomicSaveError, ContentTypeMap, ContentTypeRule, LazyZipPackage, OfficePackageKind, Package,
     PackageError, PartName, Relationship, RelationshipId, RelationshipSet, RelationshipTarget,
     ZipPackageError, save_package_atomic, write_owned_package,
 };
-use quick_xml::{events::Event, reader::Reader};
+use quick_xml::{XmlVersion, events::Event, reader::Reader};
 use std::{
     error::Error,
     fmt,
@@ -432,8 +432,7 @@ fn parse_presentation_xml(bytes: &[u8]) -> Result<(Vec<String>, f64, f64), PptxE
                 if name == "sldId" {
                     for attribute in event.attributes().flatten() {
                         if local_name(attribute.key.as_ref()) == "id" {
-                            let value =
-                                attribute.value.as_ref().to_owned();
+                            let value = attribute.value.as_ref().to_owned();
                             if value.starts_with("rId") {
                                 slide_ids.push(value);
                             }
@@ -580,16 +579,14 @@ fn parse_slide_xml(
                     "blip" => {
                         for attribute in event.attributes().flatten() {
                             if local_name(attribute.key.as_ref()) == "embed" {
-                                image_relationship =
-                                    attribute.value.as_ref().to_owned();
+                                image_relationship = attribute.value.as_ref().to_owned();
                             }
                         }
                     }
                     "cNvPr" if current_kind == Some("image") => {
                         for attribute in event.attributes().flatten() {
                             if local_name(attribute.key.as_ref()) == "descr" {
-                                image_alt =
-                                    attribute.value.as_ref().to_owned();
+                                image_alt = attribute.value.as_ref().to_owned();
                             }
                         }
                     }
@@ -618,8 +615,7 @@ fn parse_slide_xml(
                 } else if name == "blip" {
                     for attribute in event.attributes().flatten() {
                         if local_name(attribute.key.as_ref()) == "embed" {
-                            image_relationship =
-                                attribute.value.as_ref().to_owned();
+                            image_relationship = attribute.value.as_ref().to_owned();
                         }
                     }
                 }
