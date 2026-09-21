@@ -134,7 +134,7 @@ Exit criteria:
 
 ## Phase 5 — Nexa Slides MVP
 
-Status: **Final validation**.
+Status: **Completed**.
 
 Planning window: 5-8 weeks.
 
