@@ -376,18 +376,12 @@ pub fn open_xlsx<R: Read + Seek>(reader: R) -> Result<XlsxWorkbook, XlsxError> {
     })
 }
 
-pub fn save_xlsx<W: Write + Seek>(
-    workbook: &mut XlsxWorkbook,
-    writer: W,
-) -> Result<W, XlsxError> {
+pub fn save_xlsx<W: Write + Seek>(workbook: &mut XlsxWorkbook, writer: W) -> Result<W, XlsxError> {
     workbook.sync_package()?;
     write_owned_package(&workbook.package, writer).map_err(XlsxError::Zip)
 }
 
-pub fn save_xlsx_atomic(
-    workbook: &mut XlsxWorkbook,
-    destination: &Path,
-) -> Result<(), XlsxError> {
+pub fn save_xlsx_atomic(workbook: &mut XlsxWorkbook, destination: &Path) -> Result<(), XlsxError> {
     workbook.sync_package()?;
     save_package_atomic(&workbook.package, destination)?;
     Ok(())
@@ -526,11 +520,20 @@ fn parse_worksheet_xml(
                     "autoFilter" => apply_auto_filter(&element, &mut sheet),
                     "worksheet" | "dimension" | "sheetViews" | "sheetView" | "selection"
                     | "sheetFormatPr" | "cols" | "sheetData" | "is" | "mergeCells"
-                    | "pageMargins" | "pageSetup" | "printOptions" | "headerFooter"
-                    | "sheetPr" | "outlinePr" | "extLst" => {}
-                    "conditionalFormatting" | "dataValidations" | "dataValidation"
-                    | "drawing" | "legacyDrawing" | "hyperlinks" | "hyperlink" | "tableParts"
-                    | "tablePart" | "sheetProtection" | "oleObjects" | "controls" => {
+                    | "pageMargins" | "pageSetup" | "printOptions" | "headerFooter" | "sheetPr"
+                    | "outlinePr" | "extLst" => {}
+                    "conditionalFormatting"
+                    | "dataValidations"
+                    | "dataValidation"
+                    | "drawing"
+                    | "legacyDrawing"
+                    | "hyperlinks"
+                    | "hyperlink"
+                    | "tableParts"
+                    | "tablePart"
+                    | "sheetProtection"
+                    | "oleObjects"
+                    | "controls" => {
                         push_issue(issues, format!("unsupported worksheet element: {name}"));
                     }
                     _ => {}
@@ -567,11 +570,20 @@ fn parse_worksheet_xml(
                     "mergeCell" => apply_merge(&element, &mut sheet, issues),
                     "pane" => apply_pane(&element, &mut sheet),
                     "autoFilter" => apply_auto_filter(&element, &mut sheet),
-                    "dimension" | "selection" | "pageMargins" | "pageSetup"
-                    | "printOptions" | "sheetFormatPr" => {}
-                    "conditionalFormatting" | "dataValidations" | "dataValidation"
-                    | "drawing" | "legacyDrawing" | "hyperlinks" | "hyperlink" | "tableParts"
-                    | "tablePart" | "sheetProtection" | "oleObjects" | "controls" => {
+                    "dimension" | "selection" | "pageMargins" | "pageSetup" | "printOptions"
+                    | "sheetFormatPr" => {}
+                    "conditionalFormatting"
+                    | "dataValidations"
+                    | "dataValidation"
+                    | "drawing"
+                    | "legacyDrawing"
+                    | "hyperlinks"
+                    | "hyperlink"
+                    | "tableParts"
+                    | "tablePart"
+                    | "sheetProtection"
+                    | "oleObjects"
+                    | "controls" => {
                         push_issue(issues, format!("unsupported worksheet element: {name}"));
                     }
                     _ => {}
@@ -597,14 +609,13 @@ fn parse_worksheet_xml(
                     if let Some(parsed) = current_cell.take()
                         && let Some(address) = parsed.address
                     {
-                        let format =
-                            styles.get(parsed.style_index).cloned().unwrap_or_else(|| {
-                                push_issue(
-                                    issues,
-                                    format!("unknown cell style index: {}", parsed.style_index),
-                                );
-                                CellFormat::default()
-                            });
+                        let format = styles.get(parsed.style_index).cloned().unwrap_or_else(|| {
+                            push_issue(
+                                issues,
+                                format!("unknown cell style index: {}", parsed.style_index),
+                            );
+                            CellFormat::default()
+                        });
                         let mut cell = parsed_cell_value(parsed, shared_strings, issues);
                         cell.format = format;
                         sheet.set_cell(address, cell);
@@ -679,7 +690,9 @@ fn parsed_cell_value(
 
     Cell {
         value,
-        formula: parsed.formula.map(|value| value.trim_start_matches('=').to_owned()),
+        formula: parsed
+            .formula
+            .map(|value| value.trim_start_matches('=').to_owned()),
         cached_number,
         format: CellFormat::default(),
     }
@@ -737,10 +750,7 @@ struct ParsedFont {
     italic: bool,
 }
 
-fn parse_styles_xml(
-    input: &[u8],
-    issues: &mut Vec<String>,
-) -> Result<Vec<CellFormat>, XlsxError> {
+fn parse_styles_xml(input: &[u8], issues: &mut Vec<String>) -> Result<Vec<CellFormat>, XlsxError> {
     let mut reader = Reader::from_reader(input);
     reader.config_mut().trim_text(true);
     let mut buffer = Vec::new();
@@ -863,13 +873,7 @@ fn parse_styles_xml(
                 "xf" if in_cell_xfs => {
                     if let Some((font_id, fill_id, alignment, num_fmt_id)) = current_xf.take() {
                         formats.push(build_format(
-                            font_id,
-                            fill_id,
-                            alignment,
-                            num_fmt_id,
-                            &fonts,
-                            &fills,
-                            issues,
+                            font_id, fill_id, alignment, num_fmt_id, &fonts, &fills, issues,
                         ));
                     }
                 }
@@ -952,11 +956,13 @@ fn apply_column_metadata(element: &BytesStart<'_>, sheet: &mut Worksheet) {
 }
 
 fn apply_merge(element: &BytesStart<'_>, sheet: &mut Worksheet, issues: &mut Vec<String>) {
-    if let Some(range) = attr(element, "ref")
-        .and_then(|value| CellRange::parse_a1(&value).ok())
+    if let Some(range) = attr(element, "ref").and_then(|value| CellRange::parse_a1(&value).ok())
         && sheet.merge(range).is_err()
     {
-        push_issue(issues, format!("overlapping merged range: {}", range.to_a1()));
+        push_issue(
+            issues,
+            format!("overlapping merged range: {}", range.to_a1()),
+        );
     }
 }
 
@@ -974,9 +980,7 @@ fn apply_pane(element: &BytesStart<'_>, sheet: &mut Worksheet) {
 }
 
 fn apply_auto_filter(element: &BytesStart<'_>, sheet: &mut Worksheet) {
-    if let Some(range) = attr(element, "ref")
-        .and_then(|value| CellRange::parse_a1(&value).ok())
-    {
+    if let Some(range) = attr(element, "ref").and_then(|value| CellRange::parse_a1(&value).ok()) {
         sheet.set_auto_filter(Some(range));
     }
 }
@@ -1029,10 +1033,7 @@ fn write_workbook_xml(workbook: &Workbook, relationship_ids: &[String]) -> Vec<u
     output.into_bytes()
 }
 
-fn write_worksheet_xml(
-    sheet: &Worksheet,
-    style_ids: &BTreeMap<CellFormat, u32>,
-) -> Vec<u8> {
+fn write_worksheet_xml(sheet: &Worksheet, style_ids: &BTreeMap<CellFormat, u32>) -> Vec<u8> {
     let mut output = String::from(
         r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">"#,
     );
@@ -1097,16 +1098,12 @@ fn write_worksheet_xml(
         }
         output.push('>');
 
-        for (address, cell) in sheet
-            .cells()
-            .range(
-                CellAddress { row, column: 0 }
-                    ..=CellAddress {
-                        row,
-                        column: crate::MAX_COLUMNS - 1,
-                    },
-            )
-        {
+        for (address, cell) in sheet.cells().range(
+            CellAddress { row, column: 0 }..=CellAddress {
+                row,
+                column: crate::MAX_COLUMNS - 1,
+            },
+        ) {
             write_cell(&mut output, *address, cell, style_ids);
         }
         output.push_str("</row>");
@@ -1232,7 +1229,11 @@ fn write_styles_xml(styles: &[CellFormat]) -> Vec<u8> {
     output.push_str(r#"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>"#);
     for fill in &fills {
         output.push_str(r#"<fill><patternFill patternType="solid"><fgColor"#);
-        push_attr(&mut output, "rgb", &format!("FF{}", fill.trim_start_matches('#')));
+        push_attr(
+            &mut output,
+            "rgb",
+            &format!("FF{}", fill.trim_start_matches('#')),
+        );
         output.push_str(r#"/><bgColor indexed="64"/></patternFill></fill>"#);
     }
     output.push_str("</fills>");
@@ -1313,7 +1314,10 @@ fn relationship_target_by_id(
 fn next_sheet_relationship_id(relationships: RelationshipSet, hint: usize) -> String {
     for suffix in hint..hint + 100_000 {
         let candidate = format!("rIdNexaSheet{suffix}");
-        if relationships.get(&RelationshipId::new(&candidate)).is_none() {
+        if relationships
+            .get(&RelationshipId::new(&candidate))
+            .is_none()
+        {
             return candidate;
         }
     }
@@ -1415,9 +1419,7 @@ mod tests {
                 ..CellFormat::default()
             },
         );
-        sheet
-            .merge(CellRange::parse_a1("A4:B4").unwrap())
-            .unwrap();
+        sheet.merge(CellRange::parse_a1("A4:B4").unwrap()).unwrap();
         sheet.set_freeze_pane(Some(FreezePane {
             rows: 1,
             columns: 1,
