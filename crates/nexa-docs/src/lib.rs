@@ -11,7 +11,7 @@ mod editor;
 mod layout;
 mod model;
 
-pub use docx::{DocxDocument, DocxError, open_docx, save_docx};
+pub use docx::{DocxDocument, DocxError, open_docx, save_docx, save_docx_atomic};
 pub use editor::{
     DocsEditor, EditError, HistoryLimits, SearchMatch, SearchOptions, Selection, TextPosition,
 };

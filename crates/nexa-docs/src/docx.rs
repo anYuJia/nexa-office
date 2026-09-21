@@ -5,9 +5,9 @@ use crate::{
     SectionProperties, Style, StyleKind, StyleSheet, Table, TableCell, TableProperties, TableRow,
 };
 use nexa_ooxml::{
-    ContentTypeMap, ContentTypeRule, LazyZipPackage, OfficePackageKind, Package, PackageError,
-    PartName, Relationship, RelationshipId, RelationshipSet, RelationshipTarget, ZipPackageError,
-    write_owned_package,
+    AtomicSaveError, ContentTypeMap, ContentTypeRule, LazyZipPackage, OfficePackageKind, Package,
+    PackageError, PartName, Relationship, RelationshipId, RelationshipSet, RelationshipTarget,
+    ZipPackageError, save_package_atomic, write_owned_package,
 };
 use quick_xml::{
     XmlVersion,
@@ -19,6 +19,7 @@ use std::{
     error::Error,
     fmt,
     io::{Read, Seek, Write},
+    path::Path,
 };
 
 const DOCUMENT_PART: &str = "/word/document.xml";
@@ -129,6 +130,10 @@ impl DocxDocument {
         &mut self.document
     }
 
+    pub fn replace_document(&mut self, document: Document) {
+        self.document = document;
+    }
+
     #[must_use]
     pub fn package(&self) -> &Package {
         &self.package
@@ -193,6 +198,7 @@ impl DocxDocument {
 #[derive(Debug)]
 pub enum DocxError {
     Zip(ZipPackageError),
+    AtomicSave(AtomicSaveError),
     Package(PackageError),
     PartName(nexa_ooxml::PartNameError),
     WrongOfficeKind,
@@ -205,6 +211,7 @@ impl fmt::Display for DocxError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Zip(error) => write!(f, "{error}"),
+            Self::AtomicSave(error) => write!(f, "{error}"),
             Self::Package(error) => write!(f, "{error}"),
             Self::PartName(error) => write!(f, "{error}"),
             Self::WrongOfficeKind => f.write_str("package is not a DOCX Word document"),
@@ -223,6 +230,12 @@ impl Error for DocxError {}
 impl From<ZipPackageError> for DocxError {
     fn from(value: ZipPackageError) -> Self {
         Self::Zip(value)
+    }
+}
+
+impl From<AtomicSaveError> for DocxError {
+    fn from(value: AtomicSaveError) -> Self {
+        Self::AtomicSave(value)
     }
 }
 
@@ -307,6 +320,12 @@ pub fn open_docx<R: Read + Seek>(reader: R) -> Result<DocxDocument, DocxError> {
 pub fn save_docx<W: Write + Seek>(document: &mut DocxDocument, writer: W) -> Result<W, DocxError> {
     document.sync_package()?;
     write_owned_package(&document.package, writer).map_err(DocxError::Zip)
+}
+
+pub fn save_docx_atomic(document: &mut DocxDocument, destination: &Path) -> Result<(), DocxError> {
+    document.sync_package()?;
+    save_package_atomic(&document.package, destination)?;
+    Ok(())
 }
 
 fn relationship_target_by_suffix(

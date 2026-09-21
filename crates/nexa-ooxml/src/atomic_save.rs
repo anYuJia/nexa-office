@@ -43,7 +43,8 @@ impl From<ZipPackageError> for AtomicSaveError {
 pub fn save_package_atomic(package: &Package, destination: &Path) -> Result<(), AtomicSaveError> {
     let parent = destination
         .parent()
-        .ok_or(AtomicSaveError::InvalidDestination)?;
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
     let file_name = destination
         .file_name()
         .ok_or(AtomicSaveError::InvalidDestination)?;
