@@ -3,9 +3,10 @@ use crate::{
     WorkbookError, Worksheet,
 };
 use nexa_ooxml::{
-    AtomicSaveError, ContentTypeMap, ContentTypeRule, LazyZipPackage, OfficePackageKind, Package,
-    PackageError, PartName, Relationship, RelationshipId, RelationshipSet, RelationshipTarget,
-    ZipPackageError, save_package_atomic, write_owned_package,
+    AtomicSaveError, ContentTypeMap, ContentTypeRule, InteropReport, LazyZipPackage,
+    OfficePackageKind, Package, PackageError, PartName, Relationship, RelationshipId,
+    RelationshipSet, RelationshipTarget, ZipPackageError, audit_package_rewrite_risks,
+    save_package_atomic, write_owned_package,
 };
 use quick_xml::{
     XmlVersion,
@@ -45,6 +46,7 @@ pub struct XlsxWorkbook {
     sheet_relationship_ids: Vec<String>,
     styles_part: PartName,
     compatibility_issues: Vec<String>,
+    interop_report: InteropReport,
 }
 
 impl XlsxWorkbook {
@@ -120,6 +122,7 @@ impl XlsxWorkbook {
             sheet_relationship_ids: vec!["rIdSheet1".into()],
             styles_part,
             compatibility_issues: Vec::new(),
+            interop_report: InteropReport::default(),
         };
         result.sync_package().expect("blank XLSX serialization");
         result
@@ -145,13 +148,23 @@ impl XlsxWorkbook {
     }
 
     #[must_use]
+    pub fn interop_report(&self) -> &InteropReport {
+        &self.interop_report
+    }
+
+    #[must_use]
     pub fn can_save(&self) -> bool {
-        self.compatibility_issues.is_empty()
+        self.compatibility_issues.is_empty() && self.interop_report.can_rewrite_safely()
+    }
+
+    #[must_use]
+    pub fn compatibility_issue_count(&self) -> usize {
+        self.compatibility_issues.len() + self.interop_report.blocker_count()
     }
 
     fn sync_package(&mut self) -> Result<(), XlsxError> {
         if !self.can_save() {
-            return Err(XlsxError::SaveBlocked(self.compatibility_issues.len()));
+            return Err(XlsxError::SaveBlocked(self.compatibility_issue_count()));
         }
 
         self.ensure_sheet_parts()?;
@@ -365,6 +378,8 @@ pub fn open_xlsx<R: Read + Seek>(reader: R) -> Result<XlsxWorkbook, XlsxError> {
         }
     }
 
+    let interop_report = audit_package_rewrite_risks(&package);
+
     Ok(XlsxWorkbook {
         workbook,
         package,
@@ -373,6 +388,7 @@ pub fn open_xlsx<R: Read + Seek>(reader: R) -> Result<XlsxWorkbook, XlsxError> {
         sheet_relationship_ids,
         styles_part,
         compatibility_issues: issues,
+        interop_report,
     })
 }
 
