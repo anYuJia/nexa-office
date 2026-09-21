@@ -471,7 +471,7 @@ fn parse_slide_xml(
     let mut issues = Vec::new();
     for marker in [
         "<p:cxnSp",
-        "<p:grpSp",
+        "<p:grpSp>",
         "<p:contentPart",
         "<p:oleObj",
         "<p:transition",
