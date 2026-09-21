@@ -213,11 +213,12 @@ impl SlidesSession {
     }
 
     pub fn add_text_box(&mut self) -> Result<(), SlidesSessionError> {
+        let slide_index = self.current_slide_index();
         let slide = self
             .pptx
             .presentation_mut()
-            .slide_mut(self.current_slide_index())
-            .ok_or(PresentationError::MissingSlide(self.current_slide_index()))?;
+            .slide_mut(slide_index)
+            .ok_or(PresentationError::MissingSlide(slide_index))?;
         let index = slide.add_text_box("Text");
         self.selected_element = Some(index);
         self.dirty = true;
@@ -225,11 +226,12 @@ impl SlidesSession {
     }
 
     pub fn add_shape(&mut self) -> Result<(), SlidesSessionError> {
+        let slide_index = self.current_slide_index();
         let slide = self
             .pptx
             .presentation_mut()
-            .slide_mut(self.current_slide_index())
-            .ok_or(PresentationError::MissingSlide(self.current_slide_index()))?;
+            .slide_mut(slide_index)
+            .ok_or(PresentationError::MissingSlide(slide_index))?;
         let index = slide.add_shape(ShapeKind::RoundedRectangle);
         self.selected_element = Some(index);
         self.dirty = true;
@@ -237,11 +239,12 @@ impl SlidesSession {
     }
 
     pub fn add_table(&mut self) -> Result<(), SlidesSessionError> {
+        let slide_index = self.current_slide_index();
         let slide = self
             .pptx
             .presentation_mut()
-            .slide_mut(self.current_slide_index())
-            .ok_or(PresentationError::MissingSlide(self.current_slide_index()))?;
+            .slide_mut(slide_index)
+            .ok_or(PresentationError::MissingSlide(slide_index))?;
         let index = slide.add_table(3, 3)?;
         self.selected_element = Some(index);
         self.dirty = true;
@@ -303,6 +306,14 @@ impl SlidesSession {
         self.selected_element = None;
         self.dirty = true;
         Ok(())
+    }
+
+    pub fn move_selected_forward(&mut self) -> Result<(), SlidesSessionError> {
+        self.move_selected(1)
+    }
+
+    pub fn move_selected_backward(&mut self) -> Result<(), SlidesSessionError> {
+        self.move_selected(-1)
     }
 
     pub fn move_selected(&mut self, delta: isize) -> Result<(), SlidesSessionError> {
