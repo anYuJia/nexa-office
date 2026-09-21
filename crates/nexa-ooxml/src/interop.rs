@@ -90,7 +90,10 @@ impl InteropReport {
     pub fn summary(&self) -> String {
         let blockers = self.blocker_count();
         if blockers == 0 {
-            format!("{} interoperability finding(s), no rewrite blockers", self.findings.len())
+            format!(
+                "{} interoperability finding(s), no rewrite blockers",
+                self.findings.len()
+            )
         } else {
             format!(
                 "{} interoperability finding(s), {blockers} rewrite blocker(s)",
@@ -200,7 +203,10 @@ fn classify_relationship(
     relationship_type: &str,
     target: &RelationshipTarget,
 ) -> Option<CompatibilityFeature> {
-    let suffix = relationship_type.rsplit('/').next().unwrap_or(relationship_type);
+    let suffix = relationship_type
+        .rsplit('/')
+        .next()
+        .unwrap_or(relationship_type);
 
     match suffix {
         "hyperlink" => Some(CompatibilityFeature::Hyperlink),
@@ -247,9 +253,7 @@ fn relationship_rewrite_is_lossy(source_path: &str, feature: CompatibilityFeatur
 
     !matches!(
         feature,
-        CompatibilityFeature::CustomXml
-            | CompatibilityFeature::Notes
-            | CompatibilityFeature::Media
+        CompatibilityFeature::CustomXml | CompatibilityFeature::Notes | CompatibilityFeature::Media
     )
 }
 
