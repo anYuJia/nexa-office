@@ -1,6 +1,6 @@
 # Phase 4 — Nexa Sheets MVP
 
-Status: implementation complete pending final CI acceptance.
+Status: **Completed**.
 
 ## Implemented
 
@@ -34,10 +34,12 @@ Phase 4 does not silently rewrite spreadsheet constructs it cannot safely reprod
 
 ## Acceptance
 
-Phase 4 exits only when:
+Final acceptance requires and is enforced by CI:
 
-- Windows, macOS and Linux workspace fmt/check/Clippy/tests are green;
-- existing OOXML, Docs and native performance gates remain green;
-- the dedicated Sheets sparse-workbook performance gate is green;
-- generated XLSX fixtures pass edit/save/reopen tests;
-- the one-million-row sparse fixture remains sparse rather than materializing theoretical rows.
+- Windows, macOS and Linux workspace fmt/check/Clippy/tests;
+- existing OOXML, Docs and native performance gates;
+- the dedicated Sheets sparse-workbook performance gate;
+- generated XLSX edit/save/reopen fixture tests;
+- the one-million-row sparse fixture remaining sparse rather than materializing theoretical rows.
+
+The final Phase 4 branch fixes the Sheets session borrow regression and removes Sheets-specific Slint width binding loops by keeping the rendered grid bounded and scrolling through logical columns instead.
