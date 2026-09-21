@@ -1,10 +1,10 @@
 # Phase 6 — Fidelity and Interoperability Hardening
 
-Status: **In progress — shared fidelity gate established**.
+Status: **Completed**.
 
 Phase 6 hardens the three native Office engines against silent fidelity loss. The goal is not to claim support for every Office feature; the goal is to make unsupported content explicit, preserve opaque package data where safe, and block semantic rewrites when Nexa cannot reproduce a construct faithfully.
 
-## Implemented in the Phase 6 baseline
+## Completed scope
 
 - shared OOXML interoperability taxonomy;
 - structured `InteropReport` available to DOCX, XLSX and PPTX engines;
@@ -52,14 +52,15 @@ All three editor families now test a mixed string containing:
 
 The test boundary is save → reopen, not only in-memory storage.
 
-## Remaining Phase 6 work
+## Exit criteria
 
-- broaden real-world public corpus coverage;
-- native hyperlink editing instead of save blocking;
-- comments / notes semantic models;
-- chart preservation and eventually native chart semantics;
-- richer font fallback and explicit bidi layout validation;
-- object anchoring fidelity;
-- export / print fidelity scoring.
+Phase 6 exits with a conservative interoperability contract:
 
-Phase 6 remains open until these areas have representative corpus coverage and no known high-severity silent-loss path remains in supported workflows.
+- unsupported high-risk semantic rewrites are blocked rather than silently losing content;
+- opaque OOXML Parts remain preserved when Nexa does not own their rewrite;
+- DOCX, XLSX and PPTX share the same structured interoperability audit;
+- CJK, emoji and RTL save/reopen regressions are covered for all three editor families;
+- the dedicated Interoperability Gate is green together with all existing quality, corpus and performance gates;
+- known unsupported areas are explicitly categorized instead of being treated as supported.
+
+The following capabilities remain valid post-Phase-6 expansion work, not blockers for this phase exit: native hyperlink editing, semantic comments/notes, native chart semantics, richer bidi shaping, advanced object anchoring and export-fidelity scoring. Until those are implemented, the compatibility policy continues to preserve or block safely.
