@@ -73,24 +73,20 @@ fn large_slide_deck_does_not_materialize_extra_ui_state() {
     );
 }
 
-
 #[test]
 fn deleting_a_slide_rewrites_only_the_active_slide_relationship_sequence() {
     let mut pptx = PptxPresentation::blank();
-    pptx
-        .presentation_mut()
+    pptx.presentation_mut()
         .slide_mut(0)
         .unwrap()
         .add_text_box("first");
     pptx.presentation_mut().add_slide();
-    pptx
-        .presentation_mut()
+    pptx.presentation_mut()
         .slide_mut(1)
         .unwrap()
         .add_text_box("middle");
     pptx.presentation_mut().add_slide();
-    pptx
-        .presentation_mut()
+    pptx.presentation_mut()
         .slide_mut(2)
         .unwrap()
         .add_text_box("last");
