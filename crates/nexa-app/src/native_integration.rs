@@ -129,7 +129,7 @@ pub fn print_file(path: &Path) -> io::Result<()> {
 pub fn copy_text(text: &str) -> io::Result<()> {
     #[cfg(target_os = "macos")]
     {
-        return pipe_text(Command::new("pbcopy"), text);
+        return pipe_text(&mut Command::new("pbcopy"), text);
     }
 
     #[cfg(target_os = "windows")]
