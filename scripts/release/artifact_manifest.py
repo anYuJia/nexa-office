@@ -28,10 +28,24 @@ def main() -> int:
         return 2
 
     version = sys.argv[1]
-    artifacts = [Path(value) for value in sys.argv[2:]]
+    requested = [Path(value) for value in sys.argv[2:]]
+    artifacts: list[Path] = []
+    supported_suffixes = (".deb", ".tar.gz", ".pkg", ".zip", ".msi")
+    for path in requested:
+        if path.is_dir():
+            artifacts.extend(
+                candidate
+                for candidate in sorted(path.iterdir())
+                if candidate.is_file() and candidate.name.endswith(supported_suffixes)
+            )
+        else:
+            artifacts.append(path)
     missing = [str(path) for path in artifacts if not path.is_file()]
     if missing:
         print("missing artifacts: " + ", ".join(missing), file=sys.stderr)
+        return 2
+    if not artifacts:
+        print("no release artifacts found", file=sys.stderr)
         return 2
 
     out = Path("target/package")
