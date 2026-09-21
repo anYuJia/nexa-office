@@ -193,7 +193,7 @@ impl AppState {
                 self.status = match editor {
                     EditorKind::Docs => "New Docs document".to_owned(),
                     EditorKind::Sheets => "New Sheets workbook".to_owned(),
-                    EditorKind::Slides => "Slides editor is planned for Phase 5".to_owned(),
+                    EditorKind::Slides => "New Slides presentation".to_owned(),
                 };
             }
             AppCommand::OpenFile(path) => {
