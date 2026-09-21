@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+$PSNativeCommandUseErrorActionPreference = $true
 $Root = Resolve-Path (Join-Path $PSScriptRoot "../..")
 $Version = if ($env:VERSION) { $env:VERSION } else { "0.1.0" }
 
