@@ -185,6 +185,22 @@ impl SheetsSession {
         }
     }
 
+    #[cfg(test)]
+    #[must_use]
+    fn active_display_value(&self) -> String {
+        self.xlsx
+            .workbook()
+            .sheet(self.active_sheet)
+            .and_then(|sheet| sheet.cell(self.active_cell))
+            .map_or_else(String::new, nexa_sheets::Cell::display_text)
+    }
+
+    #[cfg(test)]
+    #[must_use]
+    const fn viewport_row(&self) -> u32 {
+        self.viewport_row
+    }
+
     #[must_use]
     pub fn active_bold(&self) -> bool {
         self.active_format().bold
