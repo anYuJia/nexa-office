@@ -75,6 +75,8 @@ Exit criteria:
 
 ## Phase 3 — Nexa Docs MVP
 
+Status: **Completed**.
+
 Planning window: 6-10 weeks.
 
 Scope:

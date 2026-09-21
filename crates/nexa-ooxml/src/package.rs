@@ -98,6 +98,7 @@ pub enum PackageError {
     DuplicatePart(String),
     DuplicateRelationshipId(String),
     MissingContentType(String),
+    MissingPart(String),
 }
 
 impl fmt::Display for PackageError {
@@ -110,6 +111,7 @@ impl fmt::Display for PackageError {
             Self::MissingContentType(name) => {
                 write!(f, "no content type registered for OPC part: {name}")
             }
+            Self::MissingPart(name) => write!(f, "OPC part does not exist: {name}"),
         }
     }
 }
@@ -144,6 +146,14 @@ impl Package {
     #[must_use]
     pub fn part(&self, name: &PartName) -> Option<&Part> {
         self.parts.get(name)
+    }
+    pub fn replace_part(&mut self, name: &PartName, bytes: Vec<u8>) -> Result<(), PackageError> {
+        let part = self
+            .parts
+            .get_mut(name)
+            .ok_or_else(|| PackageError::MissingPart(name.to_string()))?;
+        part.bytes = bytes;
+        Ok(())
     }
 
     pub fn remove_part(&mut self, name: &PartName) -> Option<Part> {

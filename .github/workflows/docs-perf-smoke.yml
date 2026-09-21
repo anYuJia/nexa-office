@@ -1,0 +1,118 @@
+name: Docs Performance Smoke
+
+on:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/nexa-app/**"
+      - "crates/nexa-core/**"
+      - "crates/nexa-docs/**"
+      - "crates/nexa-ooxml/**"
+      - "scripts/perf/**"
+      - ".github/workflows/docs-perf-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-perf-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux-docs-smoke:
+    name: Linux Docs 20-page smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install native runtime/build dependencies
+        run: >
+          sudo apt-get update &&
+          sudo apt-get install -y
+          libfontconfig-dev
+          libx11-xcb-dev
+          libx11-dev
+          libxcb-shape0-dev
+          libxcb-xfixes0-dev
+          libxcursor-dev
+          libxkbcommon-dev
+          libxkbcommon-x11-dev
+          xinput
+          xvfb
+
+      - name: Verify pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: docs-release-perf
+
+      - name: Build release Docs benchmark and app
+        run: |
+          cargo build --release --locked -p nexa-docs --example phase3_perf
+          cargo build --release --locked -p nexa-app
+
+      - name: Run exact 20-page semantic benchmark
+        shell: bash
+        run: |
+          mkdir -p perf-results
+          /usr/bin/time -v target/release/examples/phase3_perf perf-results/phase3-20-page.docx             > perf-results/docs-phase3.txt             2> perf-results/docs-time.txt
+          cat perf-results/docs-phase3.txt
+          cat perf-results/docs-time.txt
+
+      - name: Enforce semantic shared-runner gates
+        shell: bash
+        run: |
+          rss_kb="$(awk -F: '/Maximum resident set size/ { gsub(/^[ 	]+|[ 	]+$/, "", $2); print $2 }' perf-results/docs-time.txt)"
+          layout_us="$(awk -F= '/^layout_us=/ { print $2 }' perf-results/docs-phase3.txt)"
+          edit_us="$(awk -F= '/^edit_us=/ { print $2 }' perf-results/docs-phase3.txt)"
+          reopen_us="$(awk -F= '/^reopen_us=/ { print $2 }' perf-results/docs-phase3.txt)"
+          edited_save_us="$(awk -F= '/^edited_save_us=/ { print $2 }' perf-results/docs-phase3.txt)"
+          pages="$(awk -F= '/^layout_pages=/ { print $2 }' perf-results/docs-phase3.txt)"
+
+          max_rss_kb=32768
+          max_layout_us=100000
+          max_edit_us=50000
+          max_open_us=250000
+          max_save_us=500000
+
+          {
+            echo "semantic_peak_rss_kb=$rss_kb"
+            echo "semantic_ci_peak_rss_limit_kb=$max_rss_kb"
+            echo "semantic_ci_layout_limit_us=$max_layout_us"
+            echo "semantic_ci_edit_limit_us=$max_edit_us"
+            echo "semantic_ci_open_limit_us=$max_open_us"
+            echo "semantic_ci_save_limit_us=$max_save_us"
+          } | tee -a perf-results/docs-phase3.txt
+
+          [[ "$pages" == "20" ]]
+          [[ -n "$rss_kb" ]] && (( rss_kb <= max_rss_kb ))
+          (( layout_us <= max_layout_us ))
+          (( edit_us <= max_edit_us ))
+          (( reopen_us <= max_open_us ))
+          (( edited_save_us <= max_save_us ))
+
+      - name: Measure full Nexa Office with 20-page DOCX open
+        shell: bash
+        run: |
+          {
+            echo "commit=${GITHUB_SHA}"
+            echo "runner=${RUNNER_OS}/${RUNNER_ARCH}"
+            echo "fixture=phase3-20-page.docx"
+            echo "release_binary_bytes=$(stat -c%s target/release/nexa-office)"
+            SETTLE_SECONDS=30             CPU_SAMPLE_SECONDS=10             MAX_PRIVATE_KB=102400             MAX_IDLE_CPU_PERCENT=2.0             xvfb-run -a bash scripts/perf/linux_idle_memory.sh               target/release/nexa-office               perf-results/phase3-20-page.docx
+          } | tee perf-results/docs-app-memory.txt
+
+      - name: Upload Docs performance artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-phase3-perf
+          path: perf-results/
+          if-no-files-found: error

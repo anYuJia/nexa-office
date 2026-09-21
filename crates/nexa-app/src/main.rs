@@ -1,13 +1,23 @@
 #![deny(unsafe_code)]
 
+mod docs_session;
 mod platform;
 mod settings_store;
 
+use docs_session::{DocsSession, DocsSessionError};
 use nexa_core::{AppCommand, AppPage, AppSettings, AppState, EditorKind};
 use platform::PlatformInfo;
-use std::{cell::RefCell, path::PathBuf, rc::Rc, time::Instant};
+use std::{
+    cell::RefCell,
+    path::{Path, PathBuf},
+    rc::Rc,
+    time::Instant,
+};
 
 slint::include_modules!();
+
+type SharedState = Rc<RefCell<AppState>>;
+type SharedDocs = Rc<RefCell<Option<DocsSession>>>;
 
 fn main() -> Result<(), slint::PlatformError> {
     let startup = Instant::now();
@@ -15,29 +25,46 @@ fn main() -> Result<(), slint::PlatformError> {
     let settings_path = platform::settings_path();
     let settings = load_settings(settings_path.as_deref());
     let state = Rc::new(RefCell::new(AppState::with_settings(settings)));
+    let docs = Rc::new(RefCell::new(None));
 
     configure_static_diagnostics(&ui);
 
-    bind_navigation(&ui, Rc::clone(&state), settings_path.clone());
-    bind_editor_actions(&ui, Rc::clone(&state), settings_path.clone());
+    bind_navigation(
+        &ui,
+        Rc::clone(&state),
+        Rc::clone(&docs),
+        settings_path.clone(),
+    );
+    bind_editor_actions(
+        &ui,
+        Rc::clone(&state),
+        Rc::clone(&docs),
+        settings_path.clone(),
+    );
+    bind_docs_actions(&ui, Rc::clone(&state), Rc::clone(&docs));
     bind_settings(&ui, Rc::clone(&state), settings_path.clone());
 
     if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from) {
-        update_state(
-            &state,
-            &ui.as_weak(),
-            settings_path.as_deref(),
-            AppCommand::OpenFile(path),
-        );
+        if is_docx_path(&path) {
+            open_docs_path(&state, &docs, &ui.as_weak(), path);
+        } else {
+            update_state(
+                &state,
+                &ui.as_weak(),
+                settings_path.as_deref(),
+                AppCommand::OpenFile(path),
+            );
+        }
     } else {
         sync_ui(&state.borrow(), &ui);
+        sync_docs_ui(docs.borrow().as_ref(), &ui);
     }
 
     ui.set_shell_init_text(format!("{:.1} ms", startup.elapsed().as_secs_f64() * 1000.0).into());
     ui.run()
 }
 
-fn load_settings(path: Option<&std::path::Path>) -> AppSettings {
+fn load_settings(path: Option<&Path>) -> AppSettings {
     path.and_then(|path| settings_store::load(path).ok())
         .unwrap_or_default()
 }
@@ -50,7 +77,12 @@ fn configure_static_diagnostics(ui: &AppWindow) {
     ui.set_renderer_text(info.renderer.into());
 }
 
-fn bind_navigation(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: Option<PathBuf>) {
+fn bind_navigation(
+    ui: &AppWindow,
+    state: SharedState,
+    docs: SharedDocs,
+    settings_path: Option<PathBuf>,
+) {
     {
         let state = Rc::clone(&state);
         let ui_weak = ui.as_weak();
@@ -62,6 +94,33 @@ fn bind_navigation(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: 
                 settings_path.as_deref(),
                 AppCommand::Navigate(AppPage::Home),
             );
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_show_docs(move || {
+            if docs.borrow().is_none() {
+                *docs.borrow_mut() = Some(DocsSession::blank());
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_docs_path_input("".into());
+                }
+            }
+
+            {
+                let mut state = state.borrow_mut();
+                state.apply(AppCommand::New(EditorKind::Docs));
+                if let Some(session) = docs.borrow().as_ref() {
+                    state.set_status(format!("Editing {}", session.title()));
+                }
+            }
+
+            if let Some(ui) = ui_weak.upgrade() {
+                sync_ui(&state.borrow(), &ui);
+                sync_docs_ui(docs.borrow().as_ref(), &ui);
+            }
         });
     }
 
@@ -94,20 +153,31 @@ fn bind_navigation(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: 
 
 fn bind_editor_actions(
     ui: &AppWindow,
-    state: Rc<RefCell<AppState>>,
+    state: SharedState,
+    docs: SharedDocs,
     settings_path: Option<PathBuf>,
 ) {
     {
         let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
         let ui_weak = ui.as_weak();
         let settings_path = settings_path.clone();
         ui.on_create_docs(move || {
+            *docs.borrow_mut() = Some(DocsSession::blank());
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_docs_path_input("".into());
+                ui.set_docs_search_query("".into());
+                ui.set_docs_replace_text("".into());
+            }
             update_state(
                 &state,
                 &ui_weak,
                 settings_path.as_deref(),
                 AppCommand::New(EditorKind::Docs),
             );
+            if let Some(ui) = ui_weak.upgrade() {
+                sync_docs_ui(docs.borrow().as_ref(), &ui);
+            }
         });
     }
 
@@ -138,7 +208,219 @@ fn bind_editor_actions(
     }
 }
 
-fn bind_settings(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: Option<PathBuf>) {
+fn bind_docs_actions(ui: &AppWindow, state: SharedState, docs: SharedDocs) {
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_open_path(move |path| {
+            open_docs_path(
+                &state,
+                &docs,
+                &ui_weak,
+                PathBuf::from(path.trim().to_string()),
+            );
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_save(move || {
+            apply_docs_operation(&state, &docs, &ui_weak, |session| {
+                session.save()?;
+                Ok(format!("Saved {}", session.title()))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_save_as(move |path| {
+            let path = PathBuf::from(path.trim().to_string());
+            apply_docs_operation(&state, &docs, &ui_weak, move |session| {
+                session.save_as(path)?;
+                Ok(format!("Saved {}", session.title()))
+            });
+            if let Some(ui) = ui_weak.upgrade()
+                && let Some(session) = docs.borrow().as_ref()
+            {
+                ui.set_docs_path_input(session.path_text().into());
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_edit_paragraph(move |text| {
+            apply_docs_operation(&state, &docs, &ui_weak, |session| {
+                session.set_current_paragraph_text(text.as_str())?;
+                Ok(format!(
+                    "Editing paragraph {}",
+                    session.current_paragraph_index() + 1
+                ))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_previous_paragraph(move || {
+            apply_docs_operation(&state, &docs, &ui_weak, |session| {
+                session.previous_paragraph();
+                Ok(format!(
+                    "Paragraph {}",
+                    session.current_paragraph_index() + 1
+                ))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_next_paragraph(move || {
+            apply_docs_operation(&state, &docs, &ui_weak, |session| {
+                session.next_paragraph();
+                Ok(format!(
+                    "Paragraph {}",
+                    session.current_paragraph_index() + 1
+                ))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_insert_paragraph(move || {
+            apply_docs_operation(&state, &docs, &ui_weak, |session| {
+                session.insert_paragraph_after_current()?;
+                Ok(format!(
+                    "Inserted paragraph {}",
+                    session.current_paragraph_index() + 1
+                ))
+            });
+        });
+    }
+
+    bind_format_action(ui, Rc::clone(&state), Rc::clone(&docs), FormatAction::Bold);
+    bind_format_action(
+        ui,
+        Rc::clone(&state),
+        Rc::clone(&docs),
+        FormatAction::Italic,
+    );
+    bind_format_action(
+        ui,
+        Rc::clone(&state),
+        Rc::clone(&docs),
+        FormatAction::Underline,
+    );
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_undo(move || {
+            apply_docs_operation(&state, &docs, &ui_weak, |session| {
+                let changed = session.undo()?;
+                Ok(if changed {
+                    "Undo".to_owned()
+                } else {
+                    "Nothing to undo".to_owned()
+                })
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_redo(move || {
+            apply_docs_operation(&state, &docs, &ui_weak, |session| {
+                let changed = session.redo()?;
+                Ok(if changed {
+                    "Redo".to_owned()
+                } else {
+                    "Nothing to redo".to_owned()
+                })
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_search(move |query| {
+            apply_docs_operation(&state, &docs, &ui_weak, |session| {
+                if query.trim().is_empty() {
+                    return Ok("Enter text to search".to_owned());
+                }
+                let count = session.search_count(query.as_str())?;
+                Ok(format!("{count} match(es)"))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        let ui_weak = ui.as_weak();
+        ui.on_docs_replace_all(move |query, replacement| {
+            apply_docs_operation(&state, &docs, &ui_weak, |session| {
+                if query.trim().is_empty() {
+                    return Ok("Enter text to replace".to_owned());
+                }
+                let count = session.replace_all(query.as_str(), replacement.as_str())?;
+                Ok(format!("Replaced {count} match(es)"))
+            });
+        });
+    }
+}
+
+#[derive(Clone, Copy)]
+enum FormatAction {
+    Bold,
+    Italic,
+    Underline,
+}
+
+fn bind_format_action(ui: &AppWindow, state: SharedState, docs: SharedDocs, action: FormatAction) {
+    let bind = move |ui_weak: slint::Weak<AppWindow>| {
+        let state = Rc::clone(&state);
+        let docs = Rc::clone(&docs);
+        move || {
+            apply_docs_operation(&state, &docs, &ui_weak, |session| {
+                match action {
+                    FormatAction::Bold => session.toggle_bold()?,
+                    FormatAction::Italic => session.toggle_italic()?,
+                    FormatAction::Underline => session.toggle_underline()?,
+                }
+                Ok("Formatting updated".to_owned())
+            });
+        }
+    };
+
+    match action {
+        FormatAction::Bold => ui.on_docs_toggle_bold(bind(ui.as_weak())),
+        FormatAction::Italic => ui.on_docs_toggle_italic(bind(ui.as_weak())),
+        FormatAction::Underline => ui.on_docs_toggle_underline(bind(ui.as_weak())),
+    }
+}
+
+fn bind_settings(ui: &AppWindow, state: SharedState, settings_path: Option<PathBuf>) {
     {
         let state = Rc::clone(&state);
         let ui_weak = ui.as_weak();
@@ -169,10 +451,72 @@ fn bind_settings(ui: &AppWindow, state: Rc<RefCell<AppState>>, settings_path: Op
     }
 }
 
-fn update_state(
-    state: &Rc<RefCell<AppState>>,
+fn open_docs_path(
+    state: &SharedState,
+    docs: &SharedDocs,
     ui: &slint::Weak<AppWindow>,
-    settings_path: Option<&std::path::Path>,
+    path: PathBuf,
+) {
+    match DocsSession::open(path.clone()) {
+        Ok(session) => {
+            *docs.borrow_mut() = Some(session);
+            {
+                let mut state = state.borrow_mut();
+                state.apply(AppCommand::OpenFile(path));
+                if let Some(session) = docs.borrow().as_ref() {
+                    state.set_status(format!("Opened {}", session.title()));
+                }
+            }
+            if let Some(ui) = ui.upgrade() {
+                if let Some(session) = docs.borrow().as_ref() {
+                    ui.set_docs_path_input(session.path_text().into());
+                }
+                sync_ui(&state.borrow(), &ui);
+                sync_docs_ui(docs.borrow().as_ref(), &ui);
+            }
+        }
+        Err(error) => {
+            state
+                .borrow_mut()
+                .set_status(format!("Open failed: {error}"));
+            if let Some(ui) = ui.upgrade() {
+                sync_ui(&state.borrow(), &ui);
+            }
+        }
+    }
+}
+
+fn apply_docs_operation(
+    state: &SharedState,
+    docs: &SharedDocs,
+    ui: &slint::Weak<AppWindow>,
+    operation: impl FnOnce(&mut DocsSession) -> Result<String, DocsSessionError>,
+) {
+    let result = {
+        let mut docs = docs.borrow_mut();
+        match docs.as_mut() {
+            Some(session) => operation(session),
+            None => Ok("No Docs document is open".to_owned()),
+        }
+    };
+
+    match result {
+        Ok(status) => state.borrow_mut().set_status(status),
+        Err(error) => state
+            .borrow_mut()
+            .set_status(format!("Docs command failed: {error}")),
+    }
+
+    if let Some(ui) = ui.upgrade() {
+        sync_ui(&state.borrow(), &ui);
+        sync_docs_ui(docs.borrow().as_ref(), &ui);
+    }
+}
+
+fn update_state(
+    state: &SharedState,
+    ui: &slint::Weak<AppWindow>,
+    settings_path: Option<&Path>,
     command: AppCommand,
 ) {
     let persist_settings = matches!(
@@ -202,7 +546,7 @@ fn update_state(
 }
 
 fn persist_settings_if_available(
-    settings_path: Option<&std::path::Path>,
+    settings_path: Option<&Path>,
     settings: &AppSettings,
 ) -> Option<std::io::Error> {
     let path = settings_path?;
@@ -210,14 +554,76 @@ fn persist_settings_if_available(
 }
 
 fn sync_ui(state: &AppState, ui: &AppWindow) {
-    let page = match state.page() {
-        AppPage::Home => 0,
-        AppPage::Diagnostics => 1,
-        AppPage::Settings => 2,
+    let page = if state.active_editor() == Some(EditorKind::Docs) {
+        3
+    } else {
+        match state.page() {
+            AppPage::Home => 0,
+            AppPage::Diagnostics => 1,
+            AppPage::Settings => 2,
+        }
     };
 
     ui.set_page(page);
     ui.set_status_text(state.status().into());
     ui.set_show_status_bar(state.settings().show_status_bar());
     ui.set_compact_navigation(state.settings().compact_navigation());
+}
+
+fn sync_docs_ui(session: Option<&DocsSession>, ui: &AppWindow) {
+    let Some(session) = session else {
+        ui.set_docs_title("Docs".into());
+        ui.set_docs_current_path("No document open".into());
+        ui.set_docs_paragraph_text("".into());
+        ui.set_docs_paragraph_meta("Paragraph 0 of 0".into());
+        ui.set_docs_page_meta("0 pages".into());
+        ui.set_docs_dirty_meta("".into());
+        ui.set_docs_compatibility_text("".into());
+        ui.set_docs_bold(false);
+        ui.set_docs_italic(false);
+        ui.set_docs_underline(false);
+        ui.set_docs_can_save(false);
+        return;
+    };
+
+    ui.set_docs_title(session.title().into());
+    ui.set_docs_current_path(if session.path_text().is_empty() {
+        "Not saved yet".into()
+    } else {
+        session.path_text().into()
+    });
+    ui.set_docs_paragraph_text(session.current_paragraph_text().into());
+    ui.set_docs_paragraph_meta(
+        format!(
+            "Paragraph {} of {}",
+            session.current_paragraph_index() + 1,
+            session.paragraph_count()
+        )
+        .into(),
+    );
+    ui.set_docs_page_meta(format!("{} page(s)", session.page_count()).into());
+    ui.set_docs_dirty_meta(if session.is_dirty() {
+        "Unsaved changes".into()
+    } else {
+        "Saved".into()
+    });
+    ui.set_docs_compatibility_text(if session.can_save() {
+        "Compatibility check: writable".into()
+    } else {
+        format!(
+            "Save blocked · {} unsupported construct(s)",
+            session.compatibility_issue_count()
+        )
+        .into()
+    });
+    ui.set_docs_bold(session.current_bold());
+    ui.set_docs_italic(session.current_italic());
+    ui.set_docs_underline(session.current_underline());
+    ui.set_docs_can_save(session.can_save());
+}
+
+fn is_docx_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("docx"))
 }

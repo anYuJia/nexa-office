@@ -2561,6 +2561,7 @@ name = "nexa-app"
 version = "0.1.0"
 dependencies = [
  "nexa-core",
+ "nexa-docs",
  "slint",
  "slint-build",
 ]
@@ -2568,6 +2569,14 @@ dependencies = [
 [[package]]
 name = "nexa-core"
 version = "0.1.0"
+
+[[package]]
+name = "nexa-docs"
+version = "0.1.0"
+dependencies = [
+ "nexa-ooxml",
+ "quick-xml 0.42.0",
+]
 
 [[package]]
 name = "nexa-ooxml"
