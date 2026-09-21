@@ -2562,6 +2562,7 @@ version = "0.1.0"
 dependencies = [
  "nexa-core",
  "nexa-docs",
+ "nexa-sheets",
  "slint",
  "slint-build",
 ]
@@ -2584,6 +2585,14 @@ version = "0.1.0"
 dependencies = [
  "quick-xml 0.42.0",
  "zip",
+]
+
+[[package]]
+name = "nexa-sheets"
+version = "0.1.0"
+dependencies = [
+ "nexa-ooxml",
+ "quick-xml 0.42.0",
 ]
 
 [[package]]
