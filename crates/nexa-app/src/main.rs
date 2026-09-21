@@ -2089,6 +2089,10 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{
+        fs, process,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     #[test]
     fn chinese_status_localizes_static_and_dynamic_docs_feedback() {
@@ -2115,6 +2119,65 @@ mod tests {
             Some(PathBuf::from("/tmp/Quarter Plan.xlsx"))
         );
         assert!(path_from_drop_text("/tmp/image.png").is_none());
+    }
+
+    #[test]
+    fn phase8_same_process_editor_soak_round_trips() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should follow Unix epoch")
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!(
+            "nexa-phase8-soak-{}-{nonce}",
+            process::id()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+
+        let docx_path = directory.join("soak.docx");
+        let xlsx_path = directory.join("soak.xlsx");
+        let pptx_path = directory.join("soak.pptx");
+
+        for round in 0..16 {
+            let mut docs = DocsSession::blank();
+            docs.set_current_paragraph_text(&format!("第 {round} 轮 · Nexa Docs"))
+                .unwrap();
+            docs.insert_paragraph_after_current().unwrap();
+            docs.set_current_paragraph_text("مرحبا · שלום · 🚀").unwrap();
+            docs.toggle_bold().unwrap();
+            docs.save_as(docx_path.clone()).unwrap();
+            let reopened = DocsSession::open(docx_path.clone()).unwrap();
+            assert_eq!(reopened.paragraph_count(), 2);
+            assert!(reopened.can_save());
+
+            let mut sheets = SheetsSession::blank();
+            sheets.select_address("A1").unwrap();
+            sheets.set_active_input(&(round + 1).to_string()).unwrap();
+            sheets.select_address("A2").unwrap();
+            sheets.set_active_input("=A1*2").unwrap();
+            sheets.toggle_bold().unwrap();
+            sheets.save_as(xlsx_path.clone()).unwrap();
+            let reopened = SheetsSession::open(xlsx_path.clone()).unwrap();
+            assert!(reopened.can_save());
+            assert_eq!(reopened.sheet_count(), 1);
+
+            let mut slides = SlidesSession::blank();
+            slides.add_text_box().unwrap();
+            slides
+                .edit_selected_text(&format!("Phase 8 round {round} · 中文"))
+                .unwrap();
+            slides.add_slide();
+            slides.add_shape().unwrap();
+            slides.edit_selected_text("Stable").unwrap();
+            slides.save_as(pptx_path.clone()).unwrap();
+            let reopened = SlidesSession::open(pptx_path.clone()).unwrap();
+            assert!(reopened.can_save());
+            assert_eq!(reopened.slide_count(), 2);
+        }
+
+        let _ = fs::remove_file(docx_path);
+        let _ = fs::remove_file(xlsx_path);
+        let _ = fs::remove_file(pptx_path);
+        let _ = fs::remove_dir(directory);
     }
 
     #[test]
