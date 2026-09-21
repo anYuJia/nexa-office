@@ -156,7 +156,6 @@ impl Package {
         Ok(())
     }
 
-
     pub fn remove_part(&mut self, name: &PartName) -> Option<Part> {
         self.part_relationships.remove(name);
         self.parts.remove(name)

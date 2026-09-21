@@ -605,11 +605,7 @@ mod tests {
         );
 
         let rewritten = package
-            .rewrite_with_replacements(
-                Cursor::new(Vec::new()),
-                &replacements,
-                &BTreeSet::new(),
-            )
+            .rewrite_with_replacements(Cursor::new(Vec::new()), &replacements, &BTreeSet::new())
             .unwrap()
             .into_inner();
         let mut reopened = LazyZipPackage::open(Cursor::new(rewritten)).unwrap();
