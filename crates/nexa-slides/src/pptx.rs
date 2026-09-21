@@ -390,7 +390,7 @@ pub fn open_pptx<R: Read + Seek>(reader: R) -> Result<PptxPresentation, PptxErro
         slides.push(Slide::blank(0));
     }
     let mut presentation = Presentation::blank();
-    *presentation.slides_mut() = slides;
+    presentation.replace_slides(slides)?;
     presentation.width_inches = width_inches;
     presentation.height_inches = height_inches;
     presentation.set_active_slide(0)?;
@@ -432,7 +432,8 @@ fn parse_presentation_xml(bytes: &[u8]) -> Result<(Vec<String>, f64, f64), PptxE
     loop {
         match reader.read_event() {
             Ok(Event::Start(event)) | Ok(Event::Empty(event)) => {
-                let name = local_name(event.name().as_ref());
+                let event_name = event.name();
+                let name = local_name(event_name.as_ref());
                 if name == b"sldId" {
                     for attribute in event.attributes().flatten() {
                         if local_name(attribute.key.as_ref()) == b"id" {
@@ -500,7 +501,8 @@ fn parse_slide_xml(
     loop {
         match reader.read_event() {
             Ok(Event::Start(event)) => {
-                let name = local_name(event.name().as_ref());
+                let event_name = event.name();
+                let name = local_name(event_name.as_ref());
                 match name {
                     b"sp" => {
                         current_kind = Some("shape");
@@ -574,7 +576,8 @@ fn parse_slide_xml(
                 }
             }
             Ok(Event::Empty(event)) => {
-                let name = local_name(event.name().as_ref());
+                let event_name = event.name();
+                let name = local_name(event_name.as_ref());
                 if name == b"off" {
                     let (x, y) = parse_xy(&event);
                     if let Some(x) = x {
@@ -609,7 +612,8 @@ fn parse_slide_xml(
                 }
             }
             Ok(Event::End(event)) => {
-                let name = local_name(event.name().as_ref());
+                let event_name = event.name();
+                let name = local_name(event_name.as_ref());
                 match name {
                     b"t" => in_text = false,
                     b"tc" if table_depth > 0 => current_row.push(current_cell.clone()),
