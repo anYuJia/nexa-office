@@ -21,9 +21,9 @@ The exact dependency set is not frozen. New foundational dependencies require an
 
 ## Status
 
-Nexa Office has completed **Phase 2 — OOXML / OPC Foundation** and is entering **Phase 3 — Nexa Docs MVP**.
+Nexa Office has completed **Phase 3 — Nexa Docs MVP** and is ready to enter **Phase 4 — Nexa Sheets MVP**.
 
-The native Rust/Slint shell remains performance-gated. The shared OOXML package layer now provides bounded ZIP/XML parsing, DOCX/XLSX/PPTX package detection, package-level round-trip preservation, unknown opaque Part preservation, fuzz boundaries, and failure-safe saving.
+The native Rust/Slint application now includes a real Docs workspace backed by a native Rust DOCX semantic/editing engine: open/save, atomic Save As, paragraph editing, formatting, search/replace, undo/redo, pagination, compatibility blocking, and performance/corpus gates. Phase 3 is a safe MVP rather than a claim of complete Microsoft Word fidelity; unsupported destructive rewrites remain blocked.
 
 ## Engineering documents
 
@@ -39,6 +39,9 @@ The native Rust/Slint shell remains performance-gated. The shared OOXML package 
 - [Phase 1 Performance Baseline](docs/PERFORMANCE_BASELINE.md)
 - [Phase 2 Status](docs/PHASE2_STATUS.md)
 - [Phase 2 OOXML Performance](docs/PHASE2_PERFORMANCE.md)
+- [Phase 3 Status](docs/PHASE3_STATUS.md)
+- [Phase 3 Docs Performance](docs/PHASE3_PERFORMANCE.md)
+- [Phase 3 DOCX Corpus](docs/PHASE3_CORPUS.md)
 - [Architecture Decisions](docs/adr/README.md)
 - [Contribution Guide](CONTRIBUTING.md)
 
