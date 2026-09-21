@@ -1,6 +1,5 @@
 use std::{
-    fs,
-    io,
+    fs, io,
     path::{Path, PathBuf},
     time::{Duration, SystemTime},
 };
@@ -41,7 +40,11 @@ pub struct RecoveryCandidate {
 
 pub fn latest_candidate(root: &Path) -> io::Result<Option<RecoveryCandidate>> {
     let mut best: Option<(SystemTime, RecoveryCandidate)> = None;
-    for kind in [RecoveryKind::Docs, RecoveryKind::Sheets, RecoveryKind::Slides] {
+    for kind in [
+        RecoveryKind::Docs,
+        RecoveryKind::Sheets,
+        RecoveryKind::Slides,
+    ] {
         let Some(value) = candidate(root, kind)? else {
             continue;
         };
