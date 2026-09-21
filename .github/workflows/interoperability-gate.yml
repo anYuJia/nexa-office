@@ -1,0 +1,44 @@
+name: Interoperability Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: interop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+
+jobs:
+  office-fidelity:
+    name: Office fidelity and Unicode round trips
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify pinned Rust toolchain
+        run: rustup show
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Shared interoperability audit
+        run: cargo test --locked -p nexa-ooxml interop
+
+      - name: DOCX fidelity
+        run: cargo test --locked -p nexa-docs --test unicode_fidelity
+
+      - name: XLSX fidelity
+        run: cargo test --locked -p nexa-sheets --test xlsx_fixtures values_formula_and_unicode_fixture_round_trip
+
+      - name: PPTX fidelity
+        run: cargo test --locked -p nexa-slides --test pptx_fixtures unicode_text_survives_pptx_round_trip
