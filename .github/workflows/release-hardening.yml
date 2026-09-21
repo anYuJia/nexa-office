@@ -87,12 +87,7 @@ jobs:
           NEXA_SOAK_WARMUP_SECONDS: "10"
           NEXA_SOAK_SAMPLE_SECONDS: "45"
           NEXA_SOAK_MAX_GROWTH_MIB: "25"
-        run: |
-          Xvfb :99 -screen 0 1280x800x24 > /tmp/nexa-xvfb.log 2>&1 &
-          xvfb_pid=$!
-          trap 'kill "$xvfb_pid" 2>/dev/null || true' EXIT
-          export DISPLAY=:99
-          python scripts/ci/long_session_smoke.py target/release/nexa-office
+        run: xvfb-run -a python scripts/ci/long_session_smoke.py target/release/nexa-office
 
   package-scripts:
     name: Package scripts / ${{ matrix.os }}
@@ -121,7 +116,7 @@ jobs:
       - name: Install WiX CLI
         if: runner.os == 'Windows'
         shell: pwsh
-        run: dotnet tool install --global wix
+        run: dotnet tool install --global wix --version 4.0.6
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
