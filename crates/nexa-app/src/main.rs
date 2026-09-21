@@ -4,11 +4,13 @@ mod docs_session;
 mod platform;
 mod settings_store;
 mod sheets_session;
+mod slides_session;
 
 use docs_session::{DocsSession, DocsSessionError};
 use nexa_core::{AppCommand, AppLanguage, AppPage, AppSettings, AppState, EditorKind};
 use platform::PlatformInfo;
 use sheets_session::{SheetRowData, SheetsSession, SheetsSessionError};
+use slides_session::{SlideElementSummary, SlidesSession, SlidesSessionError};
 use std::{
     cell::RefCell,
     path::{Path, PathBuf},
@@ -21,6 +23,7 @@ slint::include_modules!();
 type SharedState = Rc<RefCell<AppState>>;
 type SharedDocs = Rc<RefCell<Option<DocsSession>>>;
 type SharedSheets = Rc<RefCell<Option<SheetsSession>>>;
+type SharedSlides = Rc<RefCell<Option<SlidesSession>>>;
 
 fn main() -> Result<(), slint::PlatformError> {
     let startup = Instant::now();
@@ -30,6 +33,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let state = Rc::new(RefCell::new(AppState::with_settings(settings)));
     let docs = Rc::new(RefCell::new(None));
     let sheets = Rc::new(RefCell::new(None));
+    let slides = Rc::new(RefCell::new(None));
 
     configure_static_diagnostics(&ui);
 
@@ -44,10 +48,12 @@ fn main() -> Result<(), slint::PlatformError> {
         Rc::clone(&state),
         Rc::clone(&docs),
         Rc::clone(&sheets),
+        Rc::clone(&slides),
         settings_path.clone(),
     );
     bind_docs_actions(&ui, Rc::clone(&state), Rc::clone(&docs));
     bind_sheets_actions(&ui, Rc::clone(&state), Rc::clone(&sheets));
+    bind_slides_actions(&ui, Rc::clone(&state), Rc::clone(&slides));
     bind_settings(&ui, Rc::clone(&state), settings_path.clone());
 
     if let Some(path) = std::env::args_os().nth(1).map(PathBuf::from) {
@@ -55,6 +61,8 @@ fn main() -> Result<(), slint::PlatformError> {
             open_docs_path(&state, &docs, &ui.as_weak(), path);
         } else if is_xlsx_path(&path) {
             open_sheets_path(&state, &sheets, &ui.as_weak(), path);
+        } else if is_pptx_path(&path) {
+            open_slides_path(&state, &slides, &ui.as_weak(), path);
         } else {
             update_state(
                 &state,
@@ -67,6 +75,7 @@ fn main() -> Result<(), slint::PlatformError> {
         sync_ui(&state.borrow(), &ui);
         sync_docs_ui(docs.borrow().as_ref(), &ui);
         sync_sheets_ui(sheets.borrow().as_ref(), &ui);
+        sync_slides_ui(slides.borrow().as_ref(), &ui);
     }
 
     ui.set_shell_init_text(format!("{:.1} ms", startup.elapsed().as_secs_f64() * 1000.0).into());
@@ -165,6 +174,7 @@ fn bind_editor_actions(
     state: SharedState,
     docs: SharedDocs,
     sheets: SharedSheets,
+    slides: SharedSlides,
     settings_path: Option<PathBuf>,
 ) {
     {
@@ -215,14 +225,23 @@ fn bind_editor_actions(
     }
 
     {
+        let state = Rc::clone(&state);
+        let slides = Rc::clone(&slides);
         let ui_weak = ui.as_weak();
         ui.on_create_slides(move || {
+            *slides.borrow_mut() = Some(SlidesSession::blank());
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_slides_path_input("".into());
+            }
             update_state(
                 &state,
                 &ui_weak,
                 settings_path.as_deref(),
                 AppCommand::New(EditorKind::Slides),
             );
+            if let Some(ui) = ui_weak.upgrade() {
+                sync_slides_ui(slides.borrow().as_ref(), &ui);
+            }
         });
     }
 }
@@ -663,6 +682,136 @@ fn bind_sheets_format_action(
     }
 }
 
+fn bind_slides_actions(ui: &AppWindow, state: SharedState, slides: SharedSlides) {
+    {
+        let state = Rc::clone(&state);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_slides_open_path(move |path| {
+            open_slides_path(
+                &state,
+                &slides,
+                &ui_weak,
+                PathBuf::from(path.trim().to_string()),
+            );
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_slides_save(move || {
+            apply_slides_operation(&state, &slides, &ui_weak, |session| {
+                session.save()?;
+                Ok(format!("Saved {}", session.title()))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_slides_save_as(move |path| {
+            let path = PathBuf::from(path.trim().to_string());
+            apply_slides_operation(&state, &slides, &ui_weak, move |session| {
+                session.save_as(path)?;
+                Ok(format!("Saved {}", session.title()))
+            });
+            if let Some(ui) = ui_weak.upgrade()
+                && let Some(session) = slides.borrow().as_ref()
+            {
+                ui.set_slides_path_input(session.path_text().into());
+            }
+        });
+    }
+
+    macro_rules! simple_slides_action {
+        ($callback:ident, $method:ident, $status:expr) => {{
+            let state = Rc::clone(&state);
+            let slides = Rc::clone(&slides);
+            let ui_weak = ui.as_weak();
+            ui.$callback(move || {
+                apply_slides_operation(&state, &slides, &ui_weak, |session| {
+                    session.$method()?;
+                    Ok(($status)(session))
+                });
+            });
+        }};
+    }
+
+    simple_slides_action!(
+        on_slides_previous,
+        previous_slide,
+        |session: &SlidesSession| { format!("Slide {}", session.current_slide_index() + 1) }
+    );
+    simple_slides_action!(on_slides_next, next_slide, |session: &SlidesSession| {
+        format!("Slide {}", session.current_slide_index() + 1)
+    });
+    simple_slides_action!(
+        on_slides_duplicate,
+        duplicate_slide,
+        |session: &SlidesSession| {
+            format!("Duplicated slide {}", session.current_slide_index() + 1)
+        }
+    );
+    simple_slides_action!(
+        on_slides_delete_slide,
+        delete_slide,
+        |session: &SlidesSession| { format!("Slide {}", session.current_slide_index() + 1) }
+    );
+    simple_slides_action!(on_slides_add_text, add_text_box, |_| "Text box added"
+        .into());
+    simple_slides_action!(on_slides_add_shape, add_shape, |_| "Shape added".into());
+    simple_slides_action!(on_slides_add_table, add_table, |_| "Table added".into());
+    simple_slides_action!(on_slides_delete_element, delete_selected, |_| {
+        "Element deleted".into()
+    });
+    simple_slides_action!(on_slides_bring_forward, move_selected_forward, |_| {
+        "Element moved forward".into()
+    });
+    simple_slides_action!(on_slides_send_backward, move_selected_backward, |_| {
+        "Element moved backward".into()
+    });
+
+    {
+        let state = Rc::clone(&state);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_slides_add_slide(move || {
+            apply_slides_operation(&state, &slides, &ui_weak, |session| {
+                session.add_slide();
+                Ok(format!("Added slide {}", session.current_slide_index() + 1))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_slides_select_element(move |index| {
+            apply_slides_operation(&state, &slides, &ui_weak, |session| {
+                session.select_element(index.max(0) as usize)?;
+                Ok(format!("Selected element {}", index + 1))
+            });
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let slides = Rc::clone(&slides);
+        let ui_weak = ui.as_weak();
+        ui.on_slides_edit_text(move |text| {
+            apply_slides_operation(&state, &slides, &ui_weak, |session| {
+                session.edit_selected_text(text.as_str())?;
+                Ok("Slide text updated".into())
+            });
+        });
+    }
+}
+
 fn bind_settings(ui: &AppWindow, state: SharedState, settings_path: Option<PathBuf>) {
     {
         let state = Rc::clone(&state);
@@ -747,6 +896,41 @@ fn open_docs_path(
     }
 }
 
+fn open_slides_path(
+    state: &SharedState,
+    slides: &SharedSlides,
+    ui: &slint::Weak<AppWindow>,
+    path: PathBuf,
+) {
+    match SlidesSession::open(path.clone()) {
+        Ok(session) => {
+            *slides.borrow_mut() = Some(session);
+            {
+                let mut state = state.borrow_mut();
+                state.apply(AppCommand::OpenFile(path));
+                if let Some(session) = slides.borrow().as_ref() {
+                    state.set_status(format!("Opened {}", session.title()));
+                }
+            }
+            if let Some(ui) = ui.upgrade() {
+                if let Some(session) = slides.borrow().as_ref() {
+                    ui.set_slides_path_input(session.path_text().into());
+                }
+                sync_ui(&state.borrow(), &ui);
+                sync_slides_ui(slides.borrow().as_ref(), &ui);
+            }
+        }
+        Err(error) => {
+            state
+                .borrow_mut()
+                .set_status(format!("Open failed: {error}"));
+            if let Some(ui) = ui.upgrade() {
+                sync_ui(&state.borrow(), &ui);
+            }
+        }
+    }
+}
+
 fn open_sheets_path(
     state: &SharedState,
     sheets: &SharedSheets,
@@ -779,6 +963,33 @@ fn open_sheets_path(
                 sync_ui(&state.borrow(), &ui);
             }
         }
+    }
+}
+
+fn apply_slides_operation(
+    state: &SharedState,
+    slides: &SharedSlides,
+    ui: &slint::Weak<AppWindow>,
+    operation: impl FnOnce(&mut SlidesSession) -> Result<String, SlidesSessionError>,
+) {
+    let result = {
+        let mut slides = slides.borrow_mut();
+        match slides.as_mut() {
+            Some(session) => operation(session),
+            None => Ok("No Slides presentation is open".to_owned()),
+        }
+    };
+
+    match result {
+        Ok(status) => state.borrow_mut().set_status(status),
+        Err(error) => state
+            .borrow_mut()
+            .set_status(format!("Slides command failed: {error}")),
+    }
+
+    if let Some(ui) = ui.upgrade() {
+        sync_ui(&state.borrow(), &ui);
+        sync_slides_ui(slides.borrow().as_ref(), &ui);
     }
 }
 
@@ -889,6 +1100,7 @@ fn sync_ui(state: &AppState, ui: &AppWindow) {
     let page = match state.active_editor() {
         Some(EditorKind::Docs) => 3,
         Some(EditorKind::Sheets) => 4,
+        Some(EditorKind::Slides) => 5,
         _ => match state.page() {
             AppPage::Home => 0,
             AppPage::Diagnostics => 1,
@@ -1109,6 +1321,107 @@ fn sync_sheets_ui(session: Option<&SheetsSession>, ui: &AppWindow) {
     ui.set_sheets_rows(Rc::new(slint::VecModel::from(rows)).into());
 }
 
+fn sync_slides_ui(session: Option<&SlidesSession>, ui: &AppWindow) {
+    let is_chinese = ui.get_is_chinese();
+    let Some(session) = session else {
+        ui.set_slides_title("Slides".into());
+        ui.set_slides_current_path(if is_chinese {
+            "未打开演示文稿".into()
+        } else {
+            "No presentation open".into()
+        });
+        ui.set_slides_dirty_meta("".into());
+        ui.set_slides_compatibility_text("".into());
+        ui.set_slides_slide_meta(if is_chinese {
+            "第 0 页 / 共 0 页".into()
+        } else {
+            "Slide 0 of 0".into()
+        });
+        ui.set_slides_selected_text("".into());
+        ui.set_slides_can_save(false);
+        ui.set_slides_elements(
+            Rc::new(slint::VecModel::from(Vec::<SlideElementRow>::new())).into(),
+        );
+        return;
+    };
+
+    ui.set_slides_title(session.title().into());
+    ui.set_slides_current_path(if session.path_text().is_empty() {
+        if is_chinese {
+            "尚未保存".into()
+        } else {
+            "Not saved yet".into()
+        }
+    } else {
+        session.path_text().into()
+    });
+    ui.set_slides_dirty_meta(
+        if session.is_dirty() {
+            if is_chinese {
+                "有未保存更改"
+            } else {
+                "Unsaved changes"
+            }
+        } else if is_chinese {
+            "已保存"
+        } else {
+            "Saved"
+        }
+        .into(),
+    );
+    ui.set_slides_compatibility_text(if session.can_save() {
+        if is_chinese {
+            "兼容性检查：可安全写入".into()
+        } else {
+            "Compatibility check: writable".into()
+        }
+    } else if is_chinese {
+        format!(
+            "已阻止保存 · {} 个暂不支持的结构",
+            session.compatibility_issue_count()
+        )
+        .into()
+    } else {
+        format!(
+            "Save blocked · {} unsupported construct(s)",
+            session.compatibility_issue_count()
+        )
+        .into()
+    });
+    ui.set_slides_slide_meta(
+        if is_chinese {
+            format!(
+                "第 {} 页 / 共 {} 页",
+                session.current_slide_index() + 1,
+                session.slide_count()
+            )
+        } else {
+            format!(
+                "Slide {} of {}",
+                session.current_slide_index() + 1,
+                session.slide_count()
+            )
+        }
+        .into(),
+    );
+    ui.set_slides_selected_text(session.selected_text().into());
+    ui.set_slides_can_save(session.can_save());
+    let elements = session
+        .element_summaries()
+        .into_iter()
+        .map(slide_element_row_from_summary)
+        .collect::<Vec<_>>();
+    ui.set_slides_elements(Rc::new(slint::VecModel::from(elements)).into());
+}
+
+fn slide_element_row_from_summary(summary: SlideElementSummary) -> SlideElementRow {
+    SlideElementRow {
+        index: summary.index as i32,
+        kind: summary.kind.into(),
+        text: summary.text.into(),
+    }
+}
+
 fn sheet_row_from_data(row: SheetRowData) -> SheetRow {
     sheet_row_from_values(row.row as i32, row.row_label.into(), &row.cells)
 }
@@ -1146,6 +1459,12 @@ fn is_xlsx_path(path: &Path) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case("xlsx"))
 }
 
+fn is_pptx_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("pptx"))
+}
+
 fn resolved_is_chinese(language: AppLanguage) -> bool {
     match language {
         AppLanguage::SimplifiedChinese => true,
@@ -1176,7 +1495,15 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
         "Settings" => "设置".to_owned(),
         "New Docs document" => "已新建文档".to_owned(),
         "New Sheets workbook" => "已新建表格".to_owned(),
-        "Slides editor is planned for Phase 5" => "演示编辑器将在 Phase 5 实现".to_owned(),
+        "New Slides presentation" => "已新建演示文稿".to_owned(),
+        "No Slides presentation is open" => "当前未打开演示文稿".to_owned(),
+        "Text box added" => "已添加文本框".to_owned(),
+        "Shape added" => "已添加形状".to_owned(),
+        "Table added" => "已添加表格".to_owned(),
+        "Element deleted" => "已删除元素".to_owned(),
+        "Element moved forward" => "元素已上移一层".to_owned(),
+        "Element moved backward" => "元素已下移一层".to_owned(),
+        "Slide text updated" => "幻灯片文字已更新".to_owned(),
         "Status bar shown" => "已显示状态栏".to_owned(),
         "Status bar hidden" => "已隐藏状态栏".to_owned(),
         "Compact navigation enabled" => "已启用紧凑导航".to_owned(),
@@ -1195,6 +1522,18 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
         "Sorted descending" => "已降序排序".to_owned(),
         "Filter cleared" => "已清除筛选".to_owned(),
         "Freeze panes updated" => "冻结窗格已更新".to_owned(),
+        other if other.starts_with("Slide ") => {
+            format!("第 {} 页", &other["Slide ".len()..])
+        }
+        other if other.starts_with("Added slide ") => {
+            format!("已添加第 {} 页", &other["Added slide ".len()..])
+        }
+        other if other.starts_with("Duplicated slide ") => {
+            format!("已复制第 {} 页", &other["Duplicated slide ".len()..])
+        }
+        other if other.starts_with("Selected element ") => {
+            format!("已选择元素 {}", &other["Selected element ".len()..])
+        }
         other if other.starts_with("Cell ") => {
             format!("单元格 {}", &other["Cell ".len()..])
         }
@@ -1247,6 +1586,12 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
             format!(
                 "表格操作失败：{}",
                 &other["Sheets command failed: ".len()..]
+            )
+        }
+        other if other.starts_with("Slides command failed: ") => {
+            format!(
+                "演示文稿操作失败：{}",
+                &other["Slides command failed: ".len()..]
             )
         }
         _ => status.to_owned(),
