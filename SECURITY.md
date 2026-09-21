@@ -35,12 +35,12 @@ At minimum:
 
 For serious unpublished vulnerabilities, avoid posting exploit details or private documents in a public issue.
 
-Until a dedicated private security advisory/contact process is configured, contact the repository owner through an appropriate private GitHub channel.
+Prefer GitHub's private vulnerability-reporting / Security Advisory flow when it is available for this repository. If that flow is unavailable, contact the repository owner through an appropriate private GitHub channel. Do not attach private Office documents unless they have been minimized and sanitized.
 
 A vulnerability fix should include a minimized regression fixture/test when it can be shared safely.
 
 ## Supported versions
 
-No production release exists yet. During pre-alpha development, only the current main branch receives security fixes.
+During pre-1.0 development, the current `main` branch is the primary supported security line. Once public prereleases exist, the newest prerelease may receive critical fixes when a safe backport is practical.
 
-This policy will be revised before the first public alpha.
+Old development snapshots and superseded prereleases are not promised security maintenance. The support policy is reviewed at each formal release using `docs/RELEASE_CHECKLIST.md`.
