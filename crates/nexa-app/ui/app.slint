@@ -520,6 +520,7 @@ export component AppWindow inherits Window {
     callback native-print();
     callback native-copy-path();
     callback open-recent(string);
+    callback drop-office-data(data-transfer);
 
     callback docs-open-path(string);
     callback docs-save();
@@ -2101,4 +2102,16 @@ export component AppWindow inherits Window {
             }
         }
     }
+    DropArea {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        can-drop(event) => { DragAction.copy }
+        dropped(event) => {
+            root.drop-office-data(event.data);
+            return event.proposed-action;
+        }
+    }
+
 }
