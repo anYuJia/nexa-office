@@ -960,6 +960,10 @@ fn open_docs_path(
                     state.set_status(format!("Opened {}", session.title()));
                 }
             }
+            persist_recent_files(&state.borrow());
+            if let Some(root) = platform::recovery_directory().as_deref() {
+                let _ = recovery_store::clear(root, RecoveryKind::Docs);
+            }
             if let Some(ui) = ui.upgrade() {
                 if let Some(session) = docs.borrow().as_ref() {
                     ui.set_docs_path_input(session.path_text().into());
@@ -995,6 +999,10 @@ fn open_slides_path(
                     state.set_status(format!("Opened {}", session.title()));
                 }
             }
+            persist_recent_files(&state.borrow());
+            if let Some(root) = platform::recovery_directory().as_deref() {
+                let _ = recovery_store::clear(root, RecoveryKind::Slides);
+            }
             if let Some(ui) = ui.upgrade() {
                 if let Some(session) = slides.borrow().as_ref() {
                     ui.set_slides_path_input(session.path_text().into());
@@ -1029,6 +1037,10 @@ fn open_sheets_path(
                 if let Some(session) = sheets.borrow().as_ref() {
                     state.set_status(format!("Opened {}", session.title()));
                 }
+            }
+            persist_recent_files(&state.borrow());
+            if let Some(root) = platform::recovery_directory().as_deref() {
+                let _ = recovery_store::clear(root, RecoveryKind::Sheets);
             }
             if let Some(ui) = ui.upgrade() {
                 if let Some(session) = sheets.borrow().as_ref() {
@@ -1070,6 +1082,10 @@ fn apply_slides_operation(
             .set_status(format!("Slides command failed: {error}")),
     }
 
+    if let Some(session) = slides.borrow_mut().as_mut() {
+        maintain_slides_recovery(session);
+    }
+
     if let Some(ui) = ui.upgrade() {
         sync_ui(&state.borrow(), &ui);
         sync_slides_ui(slides.borrow().as_ref(), &ui);
@@ -1097,6 +1113,10 @@ fn apply_sheets_operation(
             .set_status(format!("Sheets command failed: {error}")),
     }
 
+    if let Some(session) = sheets.borrow_mut().as_mut() {
+        maintain_sheets_recovery(session);
+    }
+
     if let Some(ui) = ui.upgrade() {
         sync_ui(&state.borrow(), &ui);
         sync_sheets_ui(sheets.borrow().as_ref(), &ui);
@@ -1122,6 +1142,10 @@ fn apply_docs_operation(
         Err(error) => state
             .borrow_mut()
             .set_status(format!("Docs command failed: {error}")),
+    }
+
+    if let Some(session) = docs.borrow_mut().as_mut() {
+        maintain_docs_recovery(session);
     }
 
     if let Some(ui) = ui.upgrade() {
@@ -1168,6 +1192,76 @@ fn update_state(
                 .into(),
             );
         }
+    }
+}
+
+fn persist_recent_files(state: &AppState) {
+    let Some(path) = platform::recent_files_path() else {
+        return;
+    };
+    if let Err(error) = recent_store::save(&path, state.recent_files()) {
+        eprintln!("failed to persist recent files: {error}");
+    }
+}
+
+fn maintain_docs_recovery(session: &mut DocsSession) {
+    maintain_recovery(
+        RecoveryKind::Docs,
+        session.path(),
+        session.is_dirty(),
+        session.can_save(),
+        |path| session.save_recovery_copy(path).map_err(|error| error.to_string()),
+    );
+}
+
+fn maintain_sheets_recovery(session: &mut SheetsSession) {
+    maintain_recovery(
+        RecoveryKind::Sheets,
+        session.path(),
+        session.is_dirty(),
+        session.can_save(),
+        |path| session.save_recovery_copy(path).map_err(|error| error.to_string()),
+    );
+}
+
+fn maintain_slides_recovery(session: &mut SlidesSession) {
+    maintain_recovery(
+        RecoveryKind::Slides,
+        session.path(),
+        session.is_dirty(),
+        session.can_save(),
+        |path| session.save_recovery_copy(path).map_err(|error| error.to_string()),
+    );
+}
+
+fn maintain_recovery(
+    kind: RecoveryKind,
+    original: Option<&Path>,
+    dirty: bool,
+    can_save: bool,
+    save_snapshot: impl FnOnce(&Path) -> Result<(), String>,
+) {
+    let Some(root) = platform::recovery_directory() else {
+        return;
+    };
+
+    if !dirty {
+        if let Err(error) = recovery_store::clear(&root, kind) {
+            eprintln!("failed to clear recovery snapshot: {error}");
+        }
+        return;
+    }
+    if !can_save || !recovery_store::should_snapshot(&root, kind) {
+        return;
+    }
+
+    let snapshot = recovery_store::snapshot_path(&root, kind);
+    if let Err(error) = save_snapshot(&snapshot) {
+        eprintln!("failed to write recovery snapshot: {error}");
+        return;
+    }
+    if let Err(error) = recovery_store::record(&root, kind, original) {
+        eprintln!("failed to write recovery metadata: {error}");
     }
 }
 
