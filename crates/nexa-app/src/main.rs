@@ -795,15 +795,20 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn chinese_status_localizes_static_and_dynamic_docs_feedback() {
-        assert_eq!(localize_status("Native shell ready", true), "原生工作区已就绪");
-        assert_eq!(localize_status("Editing paragraph 3", true), "正在编辑第 3 段");
+        assert_eq!(
+            localize_status("Native shell ready", true),
+            "原生工作区已就绪"
+        );
+        assert_eq!(
+            localize_status("Editing paragraph 3", true),
+            "正在编辑第 3 段"
+        );
         assert_eq!(localize_status("Replaced 4 match(es)", true), "已替换 4 处");
         assert_eq!(localize_status("7 match(es)", true), "找到 7 处匹配");
     }
