@@ -481,12 +481,26 @@ fn parse_slide_xml(
         "<c:chart",
         "<a:videoFile",
         "<a:audioFile",
+        "<a:hlinkClick",
+        "<a:hlinkHover",
     ] {
         if xml.contains(marker) {
             issues.push(format!(
                 "slide {} contains unsupported {}",
                 index + 1,
                 marker
+            ));
+        }
+    }
+
+    for relationship in relationships.iter() {
+        let supported_layout = relationship.relationship_type.ends_with("/slideLayout");
+        let read_only_image = relationship.relationship_type.ends_with("/image");
+        if !supported_layout && !read_only_image {
+            issues.push(format!(
+                "slide {} contains unsupported relationship type {}",
+                index + 1,
+                relationship.relationship_type
             ));
         }
     }
