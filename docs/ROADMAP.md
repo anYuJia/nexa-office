@@ -161,6 +161,8 @@ Exit criteria:
 
 ## Phase 6 — Fidelity and Interoperability Hardening
 
+Status: **In progress**.
+
 Planning window: 8-12 weeks, then ongoing.
 
 Scope:
