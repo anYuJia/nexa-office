@@ -1,6 +1,4 @@
-use nexa_slides::{
-    PptxPresentation, ShapeKind, SlideElement, open_pptx, save_pptx,
-};
+use nexa_slides::{PptxPresentation, ShapeKind, SlideElement, open_pptx, save_pptx};
 use std::io::Cursor;
 
 #[test]
@@ -25,7 +23,10 @@ fn generated_presentation_edits_save_and_reopen() {
         table.cell_mut(1, 1).unwrap().text = "Low".into();
     }
     pptx.presentation_mut().add_slide();
-    pptx.presentation_mut().slide_mut(1).unwrap().add_text_box("第二页");
+    pptx.presentation_mut()
+        .slide_mut(1)
+        .unwrap()
+        .add_text_box("第二页");
 
     let cursor = save_pptx(&mut pptx, Cursor::new(Vec::new())).unwrap();
     let reopened = open_pptx(Cursor::new(cursor.into_inner())).unwrap();
@@ -56,11 +57,18 @@ fn large_slide_deck_does_not_materialize_extra_ui_state() {
     let mut pptx = PptxPresentation::blank();
     for index in 1..500 {
         pptx.presentation_mut().add_slide();
-        pptx.presentation_mut().slide_mut(index).unwrap().add_text_box(index.to_string());
+        pptx.presentation_mut()
+            .slide_mut(index)
+            .unwrap()
+            .add_text_box(index.to_string());
     }
     assert_eq!(pptx.presentation().slides().len(), 500);
     assert_eq!(
-        pptx.presentation().slides().iter().map(|slide| slide.elements.len()).sum::<usize>(),
+        pptx.presentation()
+            .slides()
+            .iter()
+            .map(|slide| slide.elements.len())
+            .sum::<usize>(),
         500
     );
 }
