@@ -2064,6 +2064,36 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
         other if other.ends_with(" match(es)") => {
             format!("找到 {} 处匹配", other.trim_end_matches(" match(es)"))
         }
+        other if other.starts_with("Native open dialog failed: ") => {
+            format!(
+                "系统打开对话框失败：{}",
+                &other["Native open dialog failed: ".len()..]
+            )
+        }
+        other if other.starts_with("Native save dialog failed: ") => {
+            format!(
+                "系统另存为对话框失败：{}",
+                &other["Native save dialog failed: ".len()..]
+            )
+        }
+        other if other.starts_with("Native print failed: ") => {
+            format!("系统打印失败：{}", &other["Native print failed: ".len()..])
+        }
+        other if other.starts_with("Clipboard command failed: ") => {
+            format!(
+                "剪贴板操作失败：{}",
+                &other["Clipboard command failed: ".len()..]
+            )
+        }
+        other if other.starts_with("Dropped data could not be read: ") => {
+            format!(
+                "无法读取拖入的数据：{}",
+                &other["Dropped data could not be read: ".len()..]
+            )
+        }
+        other if other.starts_with("Recovery failed: ") => {
+            format!("恢复失败：{}", &other["Recovery failed: ".len()..])
+        }
         other if other.starts_with("Open failed: ") => {
             format!("打开失败：{}", &other["Open failed: ".len()..])
         }
@@ -2102,6 +2132,18 @@ mod tests {
         );
         assert_eq!(localize_status("Replaced 4 match(es)", true), "已替换 4 处");
         assert_eq!(localize_status("7 match(es)", true), "找到 7 处匹配");
+        assert_eq!(
+            localize_status("Native open dialog failed: denied", true),
+            "系统打开对话框失败：denied"
+        );
+        assert_eq!(
+            localize_status("Clipboard command failed: unavailable", true),
+            "剪贴板操作失败：unavailable"
+        );
+        assert_eq!(
+            localize_status("Recovery failed: invalid snapshot", true),
+            "恢复失败：invalid snapshot"
+        );
     }
 
     #[test]

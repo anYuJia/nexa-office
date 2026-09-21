@@ -499,7 +499,8 @@ export component AppWindow inherits Window {
     in property <[SlideElementRow]> slides-elements;
 
     private property <bool> nav-compact: root.compact-navigation;
-    private property <bool> dense-docs: root.compact-navigation;
+    private property <bool> dense-workspace: root.compact-navigation || root.width < 1080px;
+    private property <bool> dense-docs: root.dense-workspace;
 
     callback create-docs();
     callback create-sheets();
