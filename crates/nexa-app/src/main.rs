@@ -755,14 +755,14 @@ fn localize_status(status: &str, is_chinese: bool) -> String {
         other if other.starts_with("Saved ") => {
             format!("已保存 {}", &other["Saved ".len()..])
         }
-        other if other.ends_with(" match(es)") => {
-            format!("找到 {} 处匹配", other.trim_end_matches(" match(es)"))
-        }
         other if other.starts_with("Replaced ") && other.ends_with(" match(es)") => {
             let count = other
                 .trim_start_matches("Replaced ")
                 .trim_end_matches(" match(es)");
             format!("已替换 {count} 处")
+        }
+        other if other.ends_with(" match(es)") => {
+            format!("找到 {} 处匹配", other.trim_end_matches(" match(es)"))
         }
         other if other.starts_with("Open failed: ") => {
             format!("打开失败：{}", &other["Open failed: ".len()..])

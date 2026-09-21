@@ -366,6 +366,82 @@ export component AppWindow inherits Window {
     callback docs-search(string);
     callback docs-replace-all(string, string);
 
+    MenuBar {
+        Menu {
+            title: root.is-chinese ? "文件" : "File";
+
+            MenuItem {
+                title: root.is-chinese ? "新建文档" : "New Document";
+                shortcut: @keys(Control + N);
+                activated => { root.create-docs(); }
+            }
+
+            MenuItem {
+                title: root.is-chinese ? "保存" : "Save";
+                shortcut: @keys(Control + S);
+                enabled: root.page == 3 && root.docs-can-save;
+                activated => { root.docs-save(); }
+            }
+        }
+
+        Menu {
+            title: root.is-chinese ? "编辑" : "Edit";
+
+            MenuItem {
+                title: root.is-chinese ? "撤销" : "Undo";
+                shortcut: @keys(Control + Z);
+                enabled: root.page == 3;
+                activated => { root.docs-undo(); }
+            }
+
+            MenuItem {
+                title: root.is-chinese ? "重做" : "Redo";
+                shortcut: @keys(Control + Shift + Z);
+                enabled: root.page == 3;
+                activated => { root.docs-redo(); }
+            }
+
+            MenuItem {
+                title: root.is-chinese ? "粗体" : "Bold";
+                shortcut: @keys(Control + B);
+                enabled: root.page == 3;
+                activated => { root.docs-toggle-bold(); }
+            }
+
+            MenuItem {
+                title: root.is-chinese ? "斜体" : "Italic";
+                shortcut: @keys(Control + I);
+                enabled: root.page == 3;
+                activated => { root.docs-toggle-italic(); }
+            }
+
+            MenuItem {
+                title: root.is-chinese ? "下划线" : "Underline";
+                shortcut: @keys(Control + U);
+                enabled: root.page == 3;
+                activated => { root.docs-toggle-underline(); }
+            }
+        }
+
+        Menu {
+            title: root.is-chinese ? "视图" : "View";
+
+            MenuItem {
+                title: root.is-chinese ? "显示状态栏" : "Show Status Bar";
+                checkable: true;
+                checked: root.show-status-bar;
+                activated => { root.toggle-status-bar(); }
+            }
+
+            MenuItem {
+                title: root.is-chinese ? "紧凑导航" : "Compact Navigation";
+                checkable: true;
+                checked: root.compact-navigation;
+                activated => { root.toggle-compact-navigation(); }
+            }
+        }
+    }
+
     HorizontalLayout {
         spacing: 0px;
 
