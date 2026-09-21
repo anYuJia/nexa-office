@@ -64,7 +64,7 @@ jobs:
       - name: Install WiX CLI
         if: runner.os == 'Windows'
         shell: pwsh
-        run: dotnet tool install --global wix
+        run: dotnet tool install --global wix --version 4.0.6
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
