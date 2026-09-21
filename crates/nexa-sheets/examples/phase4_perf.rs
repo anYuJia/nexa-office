@@ -31,28 +31,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         for index in 0..POPULATED_ROWS {
             let row = index + 2;
-            sheet.set_input(
-                CellAddress::new(row - 1, 0)?,
-                &format!("SKU-{index:05}"),
-            );
-            sheet.set_input(
-                CellAddress::new(row - 1, 1)?,
-                &(index % 17 + 1).to_string(),
-            );
+            sheet.set_input(CellAddress::new(row - 1, 0)?, &format!("SKU-{index:05}"));
+            sheet.set_input(CellAddress::new(row - 1, 1)?, &(index % 17 + 1).to_string());
             sheet.set_input(
                 CellAddress::new(row - 1, 2)?,
                 &format!("{:.2}", 1.25 + f64::from(index % 31)),
             );
-            sheet.set_input(
-                CellAddress::new(row - 1, 3)?,
-                &format!("=B{row}*C{row}"),
-            );
+            sheet.set_input(CellAddress::new(row - 1, 3)?, &format!("=B{row}*C{row}"));
         }
 
-        sheet.set_input(
-            CellAddress::parse_a1("XFD1048576")?,
-            "sparse-tail",
-        );
+        sheet.set_input(CellAddress::parse_a1("XFD1048576")?, "sparse-tail");
         sheet.set_auto_filter(Some(CellRange::parse_a1(&format!(
             "A1:D{}",
             POPULATED_ROWS + 1
