@@ -1451,7 +1451,7 @@ fn write_run(output: &mut String, run: &Run) {
 
     match &run.content {
         RunContent::Text(text) => {
-            output.push_str("<w:t xml:space="preserve">");
+            output.push_str(r#"<w:t xml:space="preserve">"#);
             escape_text(output, text);
             output.push_str("</w:t>");
         }
@@ -1486,7 +1486,7 @@ fn write_run_properties(output: &mut String, props: &RunProperties) {
         output.push_str("<w:i/>");
     }
     if props.underline {
-        output.push_str("<w:u w:val="single"/>");
+        output.push_str(r#"<w:u w:val="single"/>"#);
     }
     if props.strike {
         output.push_str("<w:strike/>");
@@ -1517,7 +1517,7 @@ fn write_image(output: &mut String, image: &InlineImage) {
     output.push_str("<w:drawing><wp:inline><wp:extent");
     push_attr(output, "cx", &image.width_emu.to_string());
     push_attr(output, "cy", &image.height_emu.to_string());
-    output.push_str("/><wp:docPr id="1" name="Picture"");
+    output.push_str(r#"/><wp:docPr id="1" name="Picture""#);
     if let Some(alt) = &image.alt_text {
         push_attr(output, "descr", alt);
     }
@@ -1575,12 +1575,12 @@ fn write_table(output: &mut String, table: &Table) {
 fn write_section_properties(output: &mut String, section: &SectionProperties) {
     output.push_str("<w:sectPr>");
     if let Some(header) = &section.header_default {
-        output.push_str("<w:headerReference w:type="default"");
+        output.push_str(r#"<w:headerReference w:type="default""#);
         push_attr(output, "r:id", header);
         output.push_str("/>");
     }
     if let Some(footer) = &section.footer_default {
-        output.push_str("<w:footerReference w:type="default"");
+        output.push_str(r#"<w:footerReference w:type="default""#);
         push_attr(output, "r:id", footer);
         output.push_str("/>");
     }
