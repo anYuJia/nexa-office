@@ -144,7 +144,7 @@ pub fn copy_text(text: &str) -> io::Result<()> {
 
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        if pipe_text(Command::new("wl-copy"), text).is_ok() {
+        if pipe_text(&mut Command::new("wl-copy"), text).is_ok() {
             return Ok(());
         }
         return pipe_text(
